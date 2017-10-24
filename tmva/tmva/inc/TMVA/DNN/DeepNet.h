@@ -339,10 +339,10 @@ TDeepNet<Architecture_t, Layer_t>::TDeepNet()
 
 //______________________________________________________________________________
 template <typename Architecture_t, typename Layer_t>
-TDeepNet<Architecture_t, Layer_t>::TDeepNet(size_t batchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
+TDeepNet<Architecture_t, Layer_t>::TDeepNet(size_t fbatchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
                                             size_t batchDepth, size_t batchHeight, size_t batchWidth, ELossFunction J,
                                             EInitialization I, ERegularization R, Scalar_t weightDecay, bool isTraining)
-   : fLayers(), fBatchSize(batchSize), fInputDepth(inputDepth), fInputHeight(inputHeight), fInputWidth(inputWidth),
+   : fLayers(), fBatchSize(fbatchSize), fInputDepth(inputDepth), fInputHeight(inputHeight), fInputWidth(inputWidth),
      fBatchDepth(batchDepth), fBatchHeight(batchHeight), fBatchWidth(batchWidth), fIsTraining(isTraining), fJ(J), fI(I),
      fR(R), fWeightDecay(weightDecay)
 {
@@ -389,7 +389,7 @@ TConvLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddConvLayer(size
                                                                             Scalar_t dropoutProbability)
 {
    // All variables defining a convolutional layer
-   size_t batchSize = this->GetBatchSize();
+   size_t lbatchSize = this->GetBatchSize();
    size_t inputDepth;
    size_t inputHeight;
    size_t inputWidth;
@@ -428,7 +428,7 @@ TConvLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddConvLayer(size
 
    // Create the conv layer
    TConvLayer<Architecture_t> *convLayer = new TConvLayer<Architecture_t>(
-      batchSize, inputDepth, inputHeight, inputWidth, depth, height, width, weightsNRows, weightsNCols, biasesNRows,
+      lbatchSize, inputDepth, inputHeight, inputWidth, depth, height, width, weightsNRows, weightsNCols, biasesNRows,
       biasesNCols, outputNSlices, outputNRows, outputNCols, init, filterDepth, filterHeight, filterWidth, strideRows,
       strideCols, paddingHeight, paddingWidth, dropoutProbability, f, reg, decay);
 
@@ -449,7 +449,7 @@ TMaxPoolLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddMaxPoolLaye
                                                                                   size_t strideRows, size_t strideCols,
                                                                                   Scalar_t dropoutProbability)
 {
-   size_t batchSize = this->GetBatchSize();
+   size_t lbatchSize = this->GetBatchSize();
    size_t inputDepth;
    size_t inputHeight;
    size_t inputWidth;
@@ -477,7 +477,7 @@ TMaxPoolLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddMaxPoolLaye
    outputNCols = height * width;
 
    TMaxPoolLayer<Architecture_t> *maxPoolLayer = new TMaxPoolLayer<Architecture_t>(
-      batchSize, inputDepth, inputHeight, inputWidth, height, width, outputNSlices, outputNRows, outputNCols,
+      lbatchSize, inputDepth, inputHeight, inputWidth, height, width, outputNSlices, outputNRows, outputNCols,
       frameHeight, frameWidth, strideRows, strideCols, dropoutProbability);
 
    // But this creates a copy or what?
@@ -519,10 +519,10 @@ TCorruptionLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddCorrupti
                                                                                         Scalar_t dropoutProbability,
                                                                                         Scalar_t corruptionLevel)
 {
-   size_t batchSize = this->GetBatchSize();
+   size_t lbatchSize = this->GetBatchSize();
 
    TCorruptionLayer<Architecture_t> *corruptionLayer =
-      new TCorruptionLayer<Architecture_t>(batchSize, visibleUnits, hiddenUnits, dropoutProbability, corruptionLevel);
+      new TCorruptionLayer<Architecture_t>(lbatchSize, visibleUnits, hiddenUnits, dropoutProbability, corruptionLevel);
    fLayers.push_back(corruptionLayer);
    return corruptionLayer;
 }
@@ -540,10 +540,10 @@ TCompressionLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddCompres
    size_t visibleUnits, size_t hiddenUnits, Scalar_t dropoutProbability, EActivationFunction f,
    std::vector<Matrix_t> weights, std::vector<Matrix_t> biases)
 {
-   size_t batchSize = this->GetBatchSize();
+   size_t lbatchSize = this->GetBatchSize();
 
    TCompressionLayer<Architecture_t> *compressionLayer = new TCompressionLayer<Architecture_t>(
-      batchSize, visibleUnits, hiddenUnits, dropoutProbability, f, weights, biases);
+      lbatchSize, visibleUnits, hiddenUnits, dropoutProbability, f, weights, biases);
    fLayers.push_back(compressionLayer);
    return compressionLayer;
 }
@@ -561,10 +561,10 @@ TReconstructionLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddReco
    size_t visibleUnits, size_t hiddenUnits, Scalar_t learningRate, EActivationFunction f, std::vector<Matrix_t> weights,
    std::vector<Matrix_t> biases, Scalar_t corruptionLevel, Scalar_t dropoutProbability)
 {
-   size_t batchSize = this->GetBatchSize();
+   size_t lbatchSize = this->GetBatchSize();
 
    TReconstructionLayer<Architecture_t> *reconstructionLayer = new TReconstructionLayer<Architecture_t>(
-      batchSize, visibleUnits, hiddenUnits, learningRate, f, weights, biases, corruptionLevel, dropoutProbability);
+      lbatchSize, visibleUnits, hiddenUnits, learningRate, f, weights, biases, corruptionLevel, dropoutProbability);
    fLayers.push_back(reconstructionLayer);
    return reconstructionLayer;
 }
@@ -582,10 +582,10 @@ template <typename Architecture_t, typename Layer_t>
 TLogisticRegressionLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddLogisticRegressionLayer(
    size_t inputUnits, size_t outputUnits, size_t testDataBatchSize, Scalar_t learningRate)
 {
-   size_t batchSize = this->GetBatchSize();
+   size_t lbatchSize = this->GetBatchSize();
 
-   TLogisticRegressionLayer<Architecture_t> *logisticRegressionLayer =
-      new TLogisticRegressionLayer<Architecture_t>(batchSize, inputUnits, outputUnits, testDataBatchSize, learningRate);
+   TLogisticRegressionLayer<Architecture_t> *logisticRegressionLayer = new TLogisticRegressionLayer<Architecture_t>(
+      lbatchSize, inputUnits, outputUnits, testDataBatchSize, learningRate);
    fLayers.push_back(logisticRegressionLayer);
    return logisticRegressionLayer;
 }
@@ -602,7 +602,7 @@ template <typename Architecture_t, typename Layer_t>
 TDenseLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddDenseLayer(size_t width, EActivationFunction f,
                                                                               Scalar_t dropoutProbability)
 {
-   size_t batchSize = this->GetBatchSize();
+   size_t lbatchSize = this->GetBatchSize();
    size_t inputWidth;
    EInitialization init = this->GetInitialization();
    ERegularization reg = this->GetRegularization();
@@ -616,7 +616,7 @@ TDenseLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddDenseLayer(si
    }
 
    TDenseLayer<Architecture_t> *denseLayer =
-      new TDenseLayer<Architecture_t>(batchSize, inputWidth, width, init, dropoutProbability, f, reg, decay);
+      new TDenseLayer<Architecture_t>(lbatchSize, inputWidth, width, init, dropoutProbability, f, reg, decay);
 
    fLayers.push_back(denseLayer);
 
@@ -635,7 +635,7 @@ template <typename Architecture_t, typename Layer_t>
 TReshapeLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddReshapeLayer(size_t depth, size_t height,
                                                                                   size_t width, bool flattening)
 {
-   size_t batchSize = this->GetBatchSize();
+   size_t lbatchSize = this->GetBatchSize();
    size_t inputDepth;
    size_t inputHeight;
    size_t inputWidth;
@@ -665,7 +665,7 @@ TReshapeLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddReshapeLaye
    }
 
    TReshapeLayer<Architecture_t> *reshapeLayer =
-      new TReshapeLayer<Architecture_t>(batchSize, inputDepth, inputHeight, inputWidth, depth, height, width,
+      new TReshapeLayer<Architecture_t>(lbatchSize, inputDepth, inputHeight, inputWidth, depth, height, width,
                                         outputNSlices, outputNRows, outputNCols, flattening);
 
    fLayers.push_back(reshapeLayer);
@@ -746,7 +746,7 @@ auto TDeepNet<Architecture_t, Layer_t>::PreTrain(std::vector<Matrix_t> &input,
    std::vector<Matrix_t> inp1;
    std::vector<Matrix_t> inp2;
    size_t numOfHiddenLayers = sizeof(numHiddenUnitsPerLayer) / sizeof(numHiddenUnitsPerLayer[0]);
-   size_t batchSize = this->GetBatchSize();
+   // size_t batchSize = this->GetBatchSize();
    size_t visibleUnits = (size_t)input[0].GetNrows();
 
    AddCorruptionLayer(visibleUnits, numHiddenUnitsPerLayer[0], dropoutProbability, corruptionLevel);

@@ -73,8 +73,8 @@ template <typename Architecture> auto constructDeepAutoEncoderNet(TDeepNet<Archi
 template <typename Architecture> auto testNet()
 -> void
 {
-   using Scalar_t = typename Architecture::Scalar_t;
-   using Matrix_t = typename Architecture::Matrix_t;
+   // using Scalar_t = typename Architecture::Scalar_t;
+   // using Matrix_t = typename Architecture::Matrix_t;
    using Net_t = TDeepNet<Architecture>;
    size_t batchSize = 1;
    Net_t convNet(batchSize, 1, 1, 1, 1, 1, 1,

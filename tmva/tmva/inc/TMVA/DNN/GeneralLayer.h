@@ -191,12 +191,13 @@ public:
 //  The General Layer Class - Implementation
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-VGeneralLayer<Architecture_t>::VGeneralLayer(size_t batchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
-                                             size_t depth, size_t height, size_t width, size_t weightsNSlices,
-                                             size_t weightsNRows, size_t weightsNCols, size_t biasesNSlices,
-                                             size_t biasesNRows, size_t biasesNCols, size_t outputNSlices,
-                                             size_t outputNRows, size_t outputNCols, EInitialization init)
-   : fBatchSize(batchSize), fInputDepth(inputDepth), fInputHeight(inputHeight), fInputWidth(inputWidth), fDepth(depth),
+VGeneralLayer<Architecture_t>::VGeneralLayer(size_t lbatchSize, size_t inputDepth, size_t inputHeight,
+                                             size_t inputWidth, size_t depth, size_t height, size_t width,
+                                             size_t weightsNSlices, size_t weightsNRows, size_t weightsNCols,
+                                             size_t biasesNSlices, size_t biasesNRows, size_t biasesNCols,
+                                             size_t outputNSlices, size_t outputNRows, size_t outputNCols,
+                                             EInitialization init)
+   : fBatchSize(lbatchSize), fInputDepth(inputDepth), fInputHeight(inputHeight), fInputWidth(inputWidth), fDepth(depth),
      fHeight(height), fWidth(width), fIsTraining(true), fWeights(), fBiases(), fWeightGradients(), fBiasGradients(),
      fOutput(), fActivationGradients(), fInit(init)
 {

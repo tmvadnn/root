@@ -116,14 +116,14 @@ public:
 //  The Dense Layer Class - Implementation
 //______________________________________________________________________________
 template <typename Architecture_t>
-TDenseLayer<Architecture_t>::TDenseLayer(size_t batchSize, size_t inputWidth, size_t width, EInitialization init,
+TDenseLayer<Architecture_t>::TDenseLayer(size_t lbatchSize, size_t inputWidth, size_t width, EInitialization init,
                                          Scalar_t dropoutProbability, EActivationFunction f, ERegularization reg,
                                          Scalar_t weightDecay)
-   : VGeneralLayer<Architecture_t>(batchSize, 1, 1, inputWidth, 1, 1, width, 1, width, inputWidth, 1, width, 1, 1,
-                                   batchSize, width, init),
+   : VGeneralLayer<Architecture_t>(lbatchSize, 1, 1, inputWidth, 1, 1, width, 1, width, inputWidth, 1, width, 1, 1,
+                                   lbatchSize, width, init),
      fDerivatives(), fDropoutProbability(dropoutProbability), fF(f), fReg(reg), fWeightDecay(weightDecay)
 {
-   fDerivatives.emplace_back(batchSize, width);
+   fDerivatives.emplace_back(lbatchSize, width);
 }
 
 //______________________________________________________________________________
