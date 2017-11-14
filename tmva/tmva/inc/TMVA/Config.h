@@ -47,7 +47,10 @@ namespace TMVA {
    class MsgLogger;
 
    class Config {
-      ROOT::TThreadExecutor fPool;
+
+   private:
+      ROOT::TThreadExecutor fPool;   // Pool for multi-thread execution
+      UInt_t fNCpu = 0;              // number of machine CPU
 
    public:
 
@@ -66,6 +69,7 @@ namespace TMVA {
       Bool_t DrawProgressBar() const { return fDrawProgressBar; }
       void   SetDrawProgressBar( Bool_t d ) { fDrawProgressBar = d; }
       ROOT::TThreadExecutor &GetThreadExecutor() { return fPool; }
+      UInt_t  GetNCpu() { return fNCpu; }
 
    public:
 
