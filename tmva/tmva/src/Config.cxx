@@ -38,6 +38,7 @@ Singleton class for global configuration settings used by TMVA.
 
 #include "Rtypes.h"
 #include "TString.h"
+#include "TSystem.h"
 
 ClassImp(TMVA::Config);
 
@@ -72,6 +73,12 @@ TMVA::Config::Config() :
    fIONames.fWeightFileDir           = "weights";
    fIONames.fWeightFileExtension     = "weights";
    fIONames.fOptionsReferenceFileDir = "optionInfo";
+
+   // get number of CPU
+   SysInfo_t s;
+   gSystem->GetSysInfo(&s);
+   fNCpu = s.fCpus;
+   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
