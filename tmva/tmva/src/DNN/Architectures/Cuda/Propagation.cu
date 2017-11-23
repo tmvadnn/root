@@ -114,7 +114,6 @@ void TCuda<AFloat>::Backward(TCudaMatrix<AFloat> & activation_gradients_backward
    if (bias_gradients.GetNoElements() > 0) {
       TCuda<AFloat>::SumColumns(bias_gradients, df);
    }
-
 }
 
 //____________________________________________________________________________
@@ -137,7 +136,8 @@ void TCuda<AFloat>::Copy(std::vector<TCudaMatrix<AFloat>> & B,
       Copy(B[i], A[i]);
    }
 }
-
+//not implemented
+#if 0
 //____________________________________________________________________________
 template<typename AFloat>
 void TCuda<AFloat>::Im2col(TCudaMatrix<AFloat> &A,
@@ -329,6 +329,6 @@ void TCuda<AFloat>::Deflatten(std::vector<TCudaMatrix<AFloat>> &A,
 {
 
 }
-
+#endif
 } // namespace DNN
 } // namespace TMVA

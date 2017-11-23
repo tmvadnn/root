@@ -413,13 +413,13 @@ template <>
 void TTensorDataLoader<TMVAInput_t, TCuda<float>>::CopyTensorInput(TCudaHostBuffer<float> &buffer,
                                                                    IndexIterator_t sampleIterator)
 {
-   Event *event = fData.front();
+   Event *event = std::get<0>(fData).front();
 
    for (size_t i = 0; i < fBatchSize; i++) {
       size_t sampleIndex = *sampleIterator;
       for (size_t j = 0; j < fBatchHeight; j++) {
          for (size_t k = 0; k < fBatchWidth; k++) {
-            event = fData[sampleIndex];
+            event = std::get<0>(fData)[sampleIndex];
             // because of the column-major ordering
             size_t bufferIndex = i * fBatchHeight * fBatchWidth + k * fBatchHeight + j;
             buffer[bufferIndex] = static_cast<float>(event->GetValue(j * fBatchHeight + k));
@@ -434,14 +434,14 @@ template <>
 void TTensorDataLoader<TMVAInput_t, TCuda<float>>::CopyTensorOutput(TCudaHostBuffer<float> &buffer,
                                                                     IndexIterator_t sampleIterator)
 {
-   Event *event = fData.front();
+   Event *event = std::get<0>(fData).front();
    size_t n = buffer.GetSize() / fBatchSize;
 
    // Copy target(s).
 
    for (size_t i = 0; i < fBatchSize; i++) {
       size_t sampleIndex = *sampleIterator++;
-      event = fData[sampleIndex];
+      event = std::get<0>(fData)[sampleIndex];
       for (size_t j = 0; j < n; j++) {
          // Copy output matrices.
          size_t bufferIndex = j * fBatchSize + i;
@@ -469,11 +469,11 @@ template <>
 void TTensorDataLoader<TMVAInput_t, TCuda<float>>::CopyTensorWeights(TCudaHostBuffer<float> &buffer,
                                                                      IndexIterator_t sampleIterator)
 {
-   Event *event = fData.front();
+   Event *event = std::get<0>(fData).front();
 
    for (size_t i = 0; i < fBatchSize; i++) {
       size_t sampleIndex = *sampleIterator++;
-      event = fData[sampleIndex];
+      event = std::get<0>(fData)[sampleIndex];
       buffer[i] = static_cast<float>(event->GetWeight());
    }
 }
@@ -532,13 +532,13 @@ template <>
 void TTensorDataLoader<TMVAInput_t, TCuda<double>>::CopyTensorInput(TCudaHostBuffer<double> &buffer,
                                                                     IndexIterator_t sampleIterator)
 {
-   Event *event = fData.front();
+   Event *event = std::get<0>(fData).front();
 
    for (size_t i = 0; i < fBatchSize; i++) {
       size_t sampleIndex = *sampleIterator;
       for (size_t j = 0; j < fBatchHeight; j++) {
          for (size_t k = 0; k < fBatchWidth; k++) {
-            event = fData[sampleIndex];
+            event = std::get<0>(fData)[sampleIndex];
             // because of the column-major ordering
             size_t bufferIndex = i * fBatchHeight * fBatchWidth + k * fBatchHeight + j;
             buffer[bufferIndex] = event->GetValue(j * fBatchHeight + k);
@@ -553,14 +553,14 @@ template <>
 void TTensorDataLoader<TMVAInput_t, TCuda<double>>::CopyTensorOutput(TCudaHostBuffer<double> &buffer,
                                                                      IndexIterator_t sampleIterator)
 {
-   Event *event = fData.front();
+   Event *event = std::get<0>(fData).front();
    size_t n = buffer.GetSize() / fBatchSize;
 
    // Copy target(s).
 
    for (size_t i = 0; i < fBatchSize; i++) {
       size_t sampleIndex = *sampleIterator++;
-      event = fData[sampleIndex];
+      event = std::get<0>(fData)[sampleIndex];
       for (size_t j = 0; j < n; j++) {
          // Copy output matrices.
          size_t bufferIndex = j * fBatchSize + i;
@@ -588,11 +588,11 @@ template <>
 void TTensorDataLoader<TMVAInput_t, TCuda<double>>::CopyTensorWeights(TCudaHostBuffer<double> &buffer,
                                                                       IndexIterator_t sampleIterator)
 {
-   Event *event = fData.front();
+   Event *event = std::get<0>(fData).front();
 
    for (size_t i = 0; i < fBatchSize; i++) {
       size_t sampleIndex = *sampleIterator++;
-      event = fData[sampleIndex];
+      event = std::get<0>(fData)[sampleIndex];
       buffer[i] = static_cast<double>(event->GetWeight());
    }
 }

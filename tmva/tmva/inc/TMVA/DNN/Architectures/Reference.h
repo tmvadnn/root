@@ -305,16 +305,15 @@ public:
    static void AddConvBiases(TMatrixT<AReal> &output, const TMatrixT<AReal> &biases);
    ///@}
 
-      /** Forward propagation in the Convolutional layer */
-   static void ConvLayerForward(std::vector<TMatrixT<AReal>> & output, std::vector<TMatrixT<AReal>> & derivatives,
-                                const std::vector<TMatrixT<AReal>> &input,
-                                const TMatrixT<AReal> & weights, const TMatrixT<AReal> & biases,
-                                EActivationFunction func, const std::vector<int> & vIndices,
-                                size_t nlocalViews, size_t nlocalViewPixels,
-                                AReal dropoutProbability, bool applyDropout) {
-      Fatal("ConvLayerForward","This function is not implemented for ref architectures");
+   /** Forward propagation in the Convolutional layer */
+   static void ConvLayerForward(std::vector<TMatrixT<AReal>> &output, std::vector<TMatrixT<AReal>> &derivatives,
+                                const std::vector<TMatrixT<AReal>> &input, const TMatrixT<AReal> &weights,
+                                const TMatrixT<AReal> &biases, EActivationFunction func,
+                                const std::vector<int> &vIndices, size_t nlocalViews, size_t nlocalViewPixels,
+                                AReal dropoutProbability, bool applyDropout)
+   {
+      Fatal("ConvLayerForward", "This function is not implemented for ref architectures");
    }
-
 
    /** @name Backward Propagation in Convolutional Layer
     */

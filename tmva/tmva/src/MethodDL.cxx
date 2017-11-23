@@ -929,7 +929,9 @@ void MethodDL::Train()
    }
 
    if (this->GetArchitectureString() == "GPU") {
+#if 0
       TrainGpu();
+#endif
       return;
    } else if (this->GetArchitectureString() == "OpenCL") {
       Log() << kFATAL << "OpenCL backend not yet supported." << Endl;
@@ -941,6 +943,7 @@ void MethodDL::Train()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+#if 0
 void MethodDL::TrainGpu()
 {
 #ifdef DNNCUDA // Included only if DNNCUDA flag is set.
@@ -1114,7 +1117,7 @@ void MethodDL::TrainGpu()
          << Endl;
 #endif // DNNCUDA
 }
-
+#endif
 ////////////////////////////////////////////////////////////////////////////////
 void MethodDL::TrainCpu()
 {

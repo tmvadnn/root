@@ -175,7 +175,9 @@ public:
 
    /*! Methods for training the deep learning network */
    void Train();
+#if 0
    void TrainGpu();
+#endif
    void TrainCpu();
 
    Double_t GetMvaValue(Double_t *err = 0, Double_t *errUpper = 0);

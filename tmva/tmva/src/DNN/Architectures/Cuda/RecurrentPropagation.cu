@@ -23,7 +23,7 @@ namespace TMVA
 {
 namespace DNN  
 {
-
+#if 0
 //____________________________________________________________________________
 template<typename AFloat>
 auto TCuda<AFloat>::RecurrentLayerBackward(TCudaMatrix<AFloat> & state_gradients_backward, // BxH
@@ -69,7 +69,7 @@ auto TCuda<AFloat>::RecurrentLayerBackward(TCudaMatrix<AFloat> & state_gradients
    }
    return input_gradient;
 }
-
+#endif
 } // namespace DNN
 } // namespace TMVA
 

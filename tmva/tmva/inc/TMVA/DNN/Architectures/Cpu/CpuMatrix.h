@@ -135,7 +135,7 @@ public:
 
    static ROOT::TThreadExecutor &GetThreadExecutor() { return TMVA::Config::Instance().GetThreadExecutor(); }
 
-    // static function to get the number of elements for task
+   // static function to get the number of elements for task
    static size_t GetNWorkItems(size_t nelements); 
 
 private:

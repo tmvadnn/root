@@ -224,7 +224,7 @@ void TReference<AReal>::CalculateConvActivationGradients(std::vector<TMatrixT<AR
                                                          size_t filterHeight, size_t filterWidth)
 {
    if (activation_gradients_backward.size() == 0) return;
-   // need to implement
+// need to implement
 #if 0
    // Transform the weights
    TMatrixT<AReal> rotWeights(filterDepth, depth * filterHeight * filterWidth);
@@ -250,7 +250,7 @@ void TReference<AReal>::CalculateConvActivationGradients(std::vector<TMatrixT<AR
       activation_gradients_backward[i].MultT(rotWeights, dfTr);
    }
 #endif
-   return ;
+   return;
 }
 
 //______________________________________________________________________________
@@ -304,13 +304,14 @@ void TReference<AReal>::CalculateConvWeightGradients(TMatrixT<AReal> &weight_gra
          }
       }
    }
-#endif  
+#endif
 }
 
 //______________________________________________________________________________
 template <typename AReal>
-void TReference<AReal>::CalculateConvBiasGradients(TMatrixT<AReal> &bias_gradients, const std::vector<TMatrixT<AReal>> &df,
-                                                   size_t batchSize, size_t depth, size_t nLocalViews)
+void TReference<AReal>::CalculateConvBiasGradients(TMatrixT<AReal> &bias_gradients,
+                                                   const std::vector<TMatrixT<AReal>> &df, size_t batchSize,
+                                                   size_t depth, size_t nLocalViews)
 {
    for (size_t i = 0; i < depth; i++) {
       AReal sum = 0;

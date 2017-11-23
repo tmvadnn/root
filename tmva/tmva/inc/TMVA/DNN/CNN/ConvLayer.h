@@ -64,8 +64,7 @@ private:
    std::vector<Matrix_t> fDerivatives; ///< First fDerivatives of the activations of this layer.
 
    std::vector<int> fForwardIndices;  ///< Vector of indices used for a fast Im2Col in forward pass
-   std::vector<int> fBackwardIndices;  ///< Vector of indices used for a fast Im2Col in backward pass
-   
+   std::vector<int> fBackwardIndices; ///< Vector of indices used for a fast Im2Col in backward pass
 
    EActivationFunction fF; ///< Activation function of the layer.
    ERegularization fReg;   ///< The regularization method.
@@ -212,17 +211,17 @@ template <typename Architecture_t>
 auto TConvLayer<Architecture_t>::Forward(std::vector<Matrix_t> &input, bool applyDropout) -> void
 {
 
-   fForwardIndices.resize(this->GetNLocalViews() * this->GetNLocalViewPixels() );
+   fForwardIndices.resize(this->GetNLocalViews() * this->GetNLocalViewPixels());
 
-   R__ASSERT( input.size() > 0); 
-   Architecture_t::Im2colIndices(fForwardIndices, input[0], this->GetNLocalViews(), this->GetInputHeight(), this->GetInputWidth(), this->GetFilterHeight(),
-                             this->GetFilterWidth(), this->GetStrideRows(), this->GetStrideCols(),
-                             this->GetPaddingHeight(), this->GetPaddingWidth());
- 
-   
-   Architecture_t::ConvLayerForward(this->GetOutput(), this->GetDerivatives(), input, this->GetWeightsAt(0),  this->GetBiasesAt(0),
-                                    fF, fForwardIndices, this->GetNLocalViews(), this->GetNLocalViewPixels(),
-                                    this->GetDropoutProbability(), applyDropout ); 
+   R__ASSERT(input.size() > 0);
+   Architecture_t::Im2colIndices(fForwardIndices, input[0], this->GetNLocalViews(), this->GetInputHeight(),
+                                 this->GetInputWidth(), this->GetFilterHeight(), this->GetFilterWidth(),
+                                 this->GetStrideRows(), this->GetStrideCols(), this->GetPaddingHeight(),
+                                 this->GetPaddingWidth());
+
+   Architecture_t::ConvLayerForward(this->GetOutput(), this->GetDerivatives(), input, this->GetWeightsAt(0),
+                                    this->GetBiasesAt(0), fF, fForwardIndices, this->GetNLocalViews(),
+                                    this->GetNLocalViewPixels(), this->GetDropoutProbability(), applyDropout);
 
 #if 0  
    // in printciple I could make the indices data member of the class
@@ -270,7 +269,7 @@ auto TConvLayer<Architecture_t>::Forward(std::vector<Matrix_t> &input, bool appl
       evaluateDerivative<Architecture_t>(this->GetDerivativesAt(i), fF, this->GetOutputAt(i));
       evaluate<Architecture_t>(this->GetOutputAt(i), fF);
    }
-#endif  
+#endif
 }
 
 //______________________________________________________________________________
