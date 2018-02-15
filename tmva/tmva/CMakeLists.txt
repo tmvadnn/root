@@ -16,7 +16,8 @@ set(headers1 Configurable.h Factory.h  MethodBase.h MethodCompositeBase.h
 	     MethodKNN.h MethodCFMlpANN.h MethodCFMlpANN_Utils.h MethodLikelihood.h
 	     MethodHMatrix.h MethodPDERS.h MethodBDT.h MethodDT.h MethodSVM.h MethodBayesClassifier.h
 	     MethodFDA.h MethodMLP.h MethodBoost.h
-	     MethodPDEFoam.h MethodLD.h MethodCategory.h MethodDNN.h MethodDL.h)
+	     MethodPDEFoam.h MethodLD.h MethodCategory.h MethodDNN.h MethodDL.h
+             MethodCrossValidation.h)
 set(headers2 TSpline2.h TSpline1.h PDF.h BinaryTree.h BinarySearchTreeNode.h BinarySearchTree.h 
 	     Timer.h RootFinder.h CrossEntropy.h DecisionTree.h DecisionTreeNode.h MisClassificationError.h 
 	     Node.h SdivSqrtSplusB.h SeparationBase.h RegressionVariance.h Tools.h Reader.h 
@@ -36,7 +37,7 @@ set(headers4 NeuralNet.h TNeuron.h TSynapse.h TActivationChooser.h TActivation.h
 	     VariableTransformBase.h VarTransformHandler.h VariableIdentityTransform.h VariableDecorrTransform.h VariablePCATransform.h
 	     VariableGaussTransform.h VariableNormalizeTransform.h VariableRearrangeTransform.h VariableTransform.h ROCCalc.h ROCCurve.h)
 
-set(headers5 Envelope.h VariableImportance.h CrossValidation.h HyperParameterOptimisation.h Event.h Results.h ResultsClassification.h ResultsRegression.h ResultsMulticlass.h VariableInfo.h ClassInfo.h DataLoader.h DataSet.h DataSetInfo.h DataInputHandler.h DataSetManager.h DataSetFactory.h LossFunction.h)
+set(headers5 Envelope.h VariableImportance.h CrossValidation.h CvSplit.h HyperParameterOptimisation.h Classification.h Event.h Results.h ResultsClassification.h ResultsRegression.h ResultsMulticlass.h VariableInfo.h ClassInfo.h DataLoader.h DataSet.h DataSetInfo.h DataInputHandler.h DataSetManager.h DataSetFactory.h LossFunction.h )
 
 #---Need to suffix each header name by TMVA/  -----------------
 foreach(hs headers1 headers2 headers3 headers4 headers5)
@@ -58,6 +59,7 @@ SET(DNN_CPU_FILES  src/DNN/Architectures/Cpu.cxx
 
 #---Handle CUDA dependent code. -----------------
 if(CUDA_FOUND)
+  CUDA_INCLUDE_DIRECTORIES("${CMAKE_BINARY_DIR}/include")	
   CUDA_ADD_LIBRARY(dnn_cuda ${DNN_CUDA_FILES})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDNNCUDA")
   set(DNN_CUDA_LIBRARIES dnn_cuda ${CUDA_CUBLAS_LIBRARIES})
@@ -78,13 +80,12 @@ else()
   set(installoptions ${installoptions} FILTER "Cpu")
 endif()
 
-ROOT_GENERATE_DICTIONARY(G__TMVA ${theaders1} ${theaders2} ${theaders3} ${theaders4} ${theaders5}  MODULE TMVA LINKDEF LinkDef.h OPTIONS "-writeEmptyRootPCM" DEPENDENCIES RIO Hist Tree TreePlayer MLP Minuit XMLIO)
-
-ROOT_LINKER_LIBRARY(TMVA *.cxx G__TMVA.cxx ${DNN_FILES} ${DNN_CPU_FILES}
-                    LIBRARIES Core ${DNN_CUDA_LIBRARIES} ${DNN_CPU_LIBRARIES}
-                    DEPENDENCIES RIO Hist Tree TreePlayer MLP Minuit XMLIO)
-
-ROOT_INSTALL_HEADERS(${installoptions})
+ROOT_STANDARD_LIBRARY_PACKAGE(TMVA
+                              HEADERS ${theaders1} ${theaders2} ${theaders3} ${theaders4} ${theaders5}
+                              SOURCES *.cxx ${DNN_FILES} ${DNN_CPU_FILES} DICTIONARY_OPTIONS "-writeEmptyRootPCM"
+                              LIBRARIES Core MathCore Matrix ${DNN_CUDA_LIBRARIES} ${DNN_CPU_LIBRARIES}
+                              DEPENDENCIES Core RIO Hist Tree TreePlayer MLP Minuit XMLIO
+                              INSTALL_OPTIONS ${installoptions})
 
 if(NOT gnuinstall)
   install(DIRECTORY test DESTINATION tmva 
@@ -95,7 +96,11 @@ if(NOT gnuinstall)
                  PATTERN "data" EXCLUDE)
 endif()
 
+ROOT_ADD_TEST_SUBDIRECTORY(test/crossvalidation)
 ROOT_ADD_TEST_SUBDIRECTORY(test/DNN)
+ROOT_ADD_TEST_SUBDIRECTORY(test/Method)
+ROOT_ADD_TEST_SUBDIRECTORY(test/ROC)
+ROOT_ADD_TEST_SUBDIRECTORY(test/envelope)
 ROOT_ADD_TEST_SUBDIRECTORY(test/DNN/CNN)
 ROOT_ADD_TEST_SUBDIRECTORY(test/DNN/DAE)
 ROOT_ADD_TEST_SUBDIRECTORY(test/DNN/RNN)

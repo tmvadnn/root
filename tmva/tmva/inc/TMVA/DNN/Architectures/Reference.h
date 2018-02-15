@@ -19,6 +19,7 @@
 #define TMVA_DNN_ARCHITECTURES_REFERENCE
 
 #include "TMatrix.h"
+#include "TMVA/DNN/Functions.h"
 #include "TMVA/DNN/Architectures/Reference/DataLoader.h"
 #include "TMVA/DNN/Architectures/Reference/TensorDataLoader.h"
 #include <vector>
@@ -287,6 +288,13 @@ public:
    static void Im2col(TMatrixT<AReal> &A, TMatrixT<AReal> &B, size_t imgHeight, size_t imgWidth, size_t fltHeight,
                       size_t fltWidth, size_t strideRows, size_t strideCols, size_t zeroPaddingHeight,
                       size_t zeroPaddingWidth);
+   static void Im2colIndices(std::vector<int> &, const TMatrixT<AReal> &, size_t, size_t, size_t, size_t ,
+                      size_t , size_t , size_t , size_t ,size_t ) {
+      Fatal("Im2ColIndices","This function is not implemented for ref architectures");
+   }
+   static void Im2colFast(TMatrixT<AReal> &, const TMatrixT<AReal> &, const std::vector<int> & ) {
+       Fatal("Im2ColFast","This function is not implemented for ref architectures");
+   }
 
    /** Rotates the matrix \p B, which is representing a weights,
     *  and stores them in the matrix \p A. */
@@ -296,6 +304,17 @@ public:
    /** Add the biases in the Convolutional Layer.  */
    static void AddConvBiases(TMatrixT<AReal> &output, const TMatrixT<AReal> &biases);
    ///@}
+
+      /** Forward propagation in the Convolutional layer */
+   static void ConvLayerForward(std::vector<TMatrixT<AReal>> & output, std::vector<TMatrixT<AReal>> & derivatives,
+                                const std::vector<TMatrixT<AReal>> &input,
+                                const TMatrixT<AReal> & weights, const TMatrixT<AReal> & biases,
+                                EActivationFunction func, const std::vector<int> & vIndices,
+                                size_t nlocalViews, size_t nlocalViewPixels,
+                                AReal dropoutProbability, bool applyDropout) {
+      Fatal("ConvLayerForward","This function is not implemented for ref architectures");
+   }
+
 
    /** @name Backward Propagation in Convolutional Layer
     */
@@ -321,14 +340,14 @@ public:
    /** Utility function for calculating the activation gradients of the layer
     *  before the convolutional layer. */
    static void CalculateConvActivationGradients(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
-                                                std::vector<TMatrixT<AReal>> &df, const TMatrixT<AReal> &weights,
+                                                const std::vector<TMatrixT<AReal>> &df, const TMatrixT<AReal> &weights,
                                                 size_t batchSize, size_t inputHeight, size_t inputWidth, size_t depth,
                                                 size_t height, size_t width, size_t filterDepth, size_t filterHeight,
                                                 size_t filterWidth);
 
    /** Utility function for calculating the weight gradients of the convolutional
     *  layer. */
-   static void CalculateConvWeightGradients(TMatrixT<AReal> &weightGradients, std::vector<TMatrixT<AReal>> &df,
+   static void CalculateConvWeightGradients(TMatrixT<AReal> &weightGradients, const std::vector<TMatrixT<AReal>> &df,
                                             const std::vector<TMatrixT<AReal>> &activationBackward, size_t batchSize,
                                             size_t inputHeight, size_t inputWidth, size_t depth, size_t height,
                                             size_t width, size_t filterDepth, size_t filterHeight, size_t filterWidth,
@@ -336,7 +355,7 @@ public:
 
    /** Utility function for calculating the bias gradients of the convolutional
     *  layer. */
-   static void CalculateConvBiasGradients(TMatrixT<AReal> &biasGradients, std::vector<TMatrixT<AReal>> &df,
+   static void CalculateConvBiasGradients(TMatrixT<AReal> &biasGradients, const std::vector<TMatrixT<AReal>> &df,
                                           size_t batchSize, size_t depth, size_t nLocalViews);
    ///@}
 

@@ -452,7 +452,8 @@ AFloat reduceMean(F f, AFloat start, const AMatrix &X)
    return result / (AFloat)(m * n);
 }
 
-/** Compute the relative error of x and y */
+/** Compute the relative error of x and y. If their difference is too small,
+ *  compute the absolute error instead. */
 //______________________________________________________________________________
 template <typename T>
 inline T relativeError(const T &x, const T &y)
@@ -499,7 +500,7 @@ auto maximumRelativeError(const Matrix1 &X, const Matrix2 &Y) -> Double_t
 template <typename F, typename AFloat>
 inline AFloat finiteDifference(F f, AFloat dx)
 {
-   return f(dx) - f(0.0 - dx);
+   return f(dx) - f(-dx);
 }
 
 /*! Color code error. */

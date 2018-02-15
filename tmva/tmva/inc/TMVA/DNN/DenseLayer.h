@@ -97,6 +97,13 @@ public:
    /*! Printing the layer info. */
    void Print() const;
 
+   /*! Writes the information and the weights about the layer in an XML node. */
+   virtual void AddWeightsXMLTo(void *parent);
+
+   /*! Read the information and the weights about the layer from XML node. */
+   virtual void ReadWeightsFromXML(void *parent);
+
+
    /*! Getters */
    Scalar_t GetDropoutProbability() const { return fDropoutProbability; }
 
@@ -158,7 +165,6 @@ auto TDenseLayer<Architecture_t>::Forward(std::vector<Matrix_t> &input, bool app
    if (applyDropout && (this->GetDropoutProbability() != 1.0)) {
       Architecture_t::Dropout(input[0], this->GetDropoutProbability());
    }
-
    Architecture_t::MultiplyTranspose(this->GetOutputAt(0), input[0], this->GetWeightsAt(0));
    Architecture_t::AddRowWise(this->GetOutputAt(0), this->GetBiasesAt(0));
    evaluateDerivative<Architecture_t>(this->GetDerivativesAt(0), this->GetActivationFunction(), this->GetOutputAt(0));
@@ -194,9 +200,42 @@ void TDenseLayer<Architecture_t>::Print() const
 {
    std::cout << "Rows = " << this->GetWeightsAt(0).GetNrows();
    std::cout << "Cols = " << this->GetWeightsAt(0).GetNcols();
+   if (this->GetOutput().size() > 0) {
+      std::cout << "Output = ( " << this->GetOutput().size() << " , " << this->GetOutput()[0].GetNrows() << " , " << this->GetOutput()[0].GetNcols() << " ) " << std::endl;
+   }
    std::cout << ", Activation Function = ";
    std::cout << static_cast<int>(fF) << std::endl;
 }
+
+//______________________________________________________________________________
+
+template <typename Architecture_t>
+void TDenseLayer<Architecture_t>::AddWeightsXMLTo(void *parent)
+{
+  // write layer width activation function + weigbht and bias matrices
+
+   auto layerxml = gTools().xmlengine().NewChild(parent, 0, "DenseLayer");
+
+   gTools().xmlengine().NewAttr(layerxml, 0, "Width", gTools().StringFromInt(this->GetWidth()));
+
+   int activationFunction = static_cast<int>(this -> GetActivationFunction());
+   gTools().xmlengine().NewAttr(layerxml, 0, "ActivationFunction",
+                                TString::Itoa(activationFunction, 10));
+   // write weights and bias matrix 
+   this->WriteMatrixToXML(layerxml, "Weights", this -> GetWeightsAt(0));
+   this->WriteMatrixToXML(layerxml, "Biases",  this -> GetBiasesAt(0));
+}
+
+//______________________________________________________________________________
+template <typename Architecture_t>
+void TDenseLayer<Architecture_t>::ReadWeightsFromXML(void *parent)
+{
+   // Read layer weights and biases from XML
+   this->ReadMatrixXML(parent,"Weights", this -> GetWeightsAt(0));
+   this->ReadMatrixXML(parent,"Biases", this -> GetBiasesAt(0));
+   
+}
+
 } // namespace DNN
 } // namespace TMVA
 

@@ -11,6 +11,7 @@
 #include "ROOT/TDataFrame.hxx"
 using namespace ROOT::Experimental;
 
+// clang-format off
 /**
 * \class ROOT::Experimental::TDataFrame
 * \ingroup dataframe
@@ -158,6 +159,16 @@ This is useful to generate simple data-sets on the fly: the contents of each eve
 transformation (explained below). For example, we have used this method to generate Pythia events (with a `Define`
 transformation) and write them to disk in parallel (with the `Snapshot` action).
 
+### Programmatically get the list of column names
+The list of column names available in the dataset can be obtained with the `GetColumnsNames` method:
+~~~{.cpp}
+TDataFrame d("myTree", "file.root");
+auto colNames = d.GetColumnNames();
+for (auto &&colName : colNames) {
+   std::cout << colName << std::endl;
+   }
+~~~
+
 ### Filling a histogram
 Let's now tackle a very common task, filling a histogram:
 ~~~{.cpp}
@@ -190,9 +201,10 @@ You can think of your data as "flowing" through the chain of calls, being transf
 perform actions. Multiple `Filter` calls can be chained one after another.
 
 Using string filters is nice for simple things, but they are limited to specifying the equivalent of a single return
-statement. They also add a small runtime overhead, as ROOT needs to just-in-time compile the string into c++ code.
-When more freedom is required or runtime is very important, a c++ callable can be specified instead (a lambda in the
-following snippet, but it can be any kind of function or even a functor class), together with a list of branch names.
+statement or the body of a lambda, so it's cumbersome to use strings with more complex filters. They also add a small
+runtime overhead, as ROOT needs to just-in-time compile the string into C++ code. When more freedom is required or
+runtime performance is very important, a C++ callable can be specified instead (a lambda in the following snippet,
+but it can be any kind of function or even a functor class), together with a list of branch names.
 This snippet is analogous to the one above:
 ~~~{.cpp}
 TDataFrame d("myTree", "file.root");
@@ -200,6 +212,21 @@ auto metCut = [](double x) { return x > 4.; }; // a c++11 lambda function checki
 auto c = d.Filter(metCut, {"MET"}).Count();
 std::cout << *c << std::endl;
 ~~~
+
+An example of a more complex filter expressed as a string containing C++ code is shown below
+
+~~~{.cpp}
+TDataFrame d("myTree", "file.root");
+auto df = d.Define("p", "std::array<double, 4> p{px, py, pz, E}; return p;")
+           .Filter("double p2 = 0.0; for (auto&& x : p) p2 += x*x; return sqrt(p2) < 10.0;");
+~~~
+
+The code snippet above defines a column `p` that is a fixed-size array using the component column names and then
+filters on its magnitude by looping over its elements. It must be noted that the usage of strings to define columns
+like the one above is a major advantage when using PyROOT. However, only constants and data coming from other columns
+in the dataset can be involved in the code passed as a string. Local variables and functions cannot be used, since
+the interpreter will not know how to find them. When capturing local state is necessary, a C++ callable can be used.
+
 More information on filters and how to use them to automatically generate cutflow reports can be found [below](#Filters).
 
 ### Defining custom columns
@@ -243,6 +270,8 @@ possible: at each point of the transformation chain, users can store the status 
 on this [below](#callgraphs)).
 
 You can read more about defining new columns [here](#custom-columns).
+
+\image html TDF_Graph.png "A graph composed of two branches, one starting with a filter and one with a define. The end point of a branch is always an action."
 
 ### Running on a range of entries
 It is sometimes necessary to limit the processing of the dataset to a range of entries. For this reason, the TDataFrame
@@ -294,6 +323,28 @@ Simple as that. More details are given [below](#parallel-execution).
 Here is a list of the most important features that have been omitted in the "Crash course" for brevity.
 You don't need to read all these to start using `TDataFrame`, but they are useful to save typing time and runtime.
 
+### Treatment of columns holding collections
+When using TDataFrame to read data from a ROOT file, users can specify that the type of a branch is `TArrayBranch<T>` to indicate the branch is a c-style array, an STL array or any other collection type associated to a contiguous storage in memory.
+
+Column values of type `TArrayBranch<T>` perform no copy of the underlying array data, it's in some sense a view, and offer a minimal array-like interface to access the array elements: either via square brackets, or with range-based for loops.
+
+The `TArrayBranch<T>` type signals to TDataFrame that a special behaviour needs to be adopted when snapshotting a dataset on disk. Indeed, if columns which are variable size C arrays are treated via the `TArrayBranch<T>`, TDataFrame will correctly persistify them - if anything else is adopted, for example `std::span`, only the first element of the array will be written.
+
+### Callbacks
+Acting on a TResultProxy, it is possible to register a callback that TDataFrame will execute "everyNEvents" on a partial result.
+
+The callback must be a callable that takes a reference to the result type as argument and returns nothing.
+TDataFrame, acting as a full fledged data processing framework, will invoke registered callbacks passing partial action results as arguments to them (e.g. a histogram filled with a part of the selected events).
+
+Callbacks can be used e.g. to inspect partial results of the analysis while the event loop is running. For
+example one can draw an up-to-date version of a result histogram every 100 entries like this:
+~~~{.cpp}
+auto h = tdf.Histo1D("x");
+TCanvas c("c","x hist");
+h.OnPartialResult(100, [&c](TH1D &h_) { c.cd(); h_.Draw(); c.Update(); });
+h->Draw(); // event loop runs here, this `Draw` is executed after the event loop is finished
+~~~
+
 ### Default branch lists
 When constructing a `TDataFrame` object, it is possible to specify a **default column list** for your analysis, in the
 usual form of a list of strings representing branch/column names. The default column list will be used as a fallback
@@ -335,8 +386,7 @@ dataFrame.Min<MyNumber_t>("myObject"); // OK, "myObject" is deduced to be of typ
 ~~~
 
 Deducing types at runtime requires the just-in-time compilation of the relevant actions, which has a small runtime
-overhead, so specifying the type of the columns as template parameters to the action is good practice when performance
-is a goal.
+overhead, so specifying the type of the columns as template parameters to the action is good practice when performance is a goal.
 
 ### Generic actions
 `TDataFrame` strives to offer a comprehensive set of standard actions that can be performed on each event. At the same
@@ -366,7 +416,7 @@ number indicating which thread (0, 1, 2 , ..., poolSize - 1) the function is bei
 ~~~{.cpp}
 // Thread-safe evaluation of RMS of branch "b" using ForeachSlot
 ROOT::EnableImplicitMT();
-unsigned int nSlots = ROOT::GetImplicitMTPoolSize();
+const unsigned int nSlots = ROOT::GetImplicitMTPoolSize();
 std::vector<double> sumSqs(nSlots, 0.);
 std::vector<unsigned int> ns(nSlots, 0);
 
@@ -378,6 +428,42 @@ std::cout << "rms of b: " << std::sqrt(sumSq / n) << std::endl;
 ~~~
 You see how we created one `double` variable for each thread in the pool, and later merged their results via
 `std::accumulate`.
+
+### Friend trees
+Friend trees are supported by TDataFrame.
+In order to deal with friend trees with TDataFrame, the user is required to build
+the tree and its friends and instantiate a TDataFrame with it.
+Two caveats are presents when using jitted `Define`s and `Filter`s:
+1) the only columns which can be used in the strings passed to the aforementioned transformations are the top level branches of the friend trees.
+2) the "friend columns" cannot be written with the notation involving a dot. For example, if a tree is created like this:
+~~~{.cpp}
+TTree t([...]);
+TTree ft([...]);
+t.AddFriend(t,"myFriend");
+~~~
+in order to access a certain column `col` of the tree ft, it will be necessary to alias it before. To continue the example:
+~~~{.cpp}
+TDataFrame d(t);
+d.Alias("myFriend_MyCol", "myFriend.MyCol");
+auto f = d.Filter("myFriend_MyCol == 42");
+~~~
+
+### Reading file formats different from ROOT's
+TDataFrame can be interfaced with TDataSources. The TDataSource interface defines an API that TDataFrame can use to read arbitrary data formats.
+
+A concrete TDataSource implementation (i.e. a class that inherits from TDataSource and implements all of its pure
+methods) provides an adaptor that TDataFrame can leverage to read any kind of tabular data formats.
+TDataFrame calls into TDataSource to retrieve information about the data, retrieve (thread-local) readers or "cursors" for selected columns and to advance the readers to the desired data entry.
+Some predefined TDataSources are natively provided by ROOT such as the `TCsvDS` which allows to read comma separated files:
+~~~{.cpp}
+auto tdf = ROOT::Experimental::TDF::MakeCsvDataFrame("MuRun2010B.csv");
+auto filteredEvents =
+   tdf.Filter("Q1 * Q2 == -1")
+      .Define("m", "sqrt(pow(E1 + E2, 2) - (pow(px1 + px2, 2) + pow(py1 + py2, 2) + pow(pz1 + pz2, 2)))");
+auto h = filteredEvents.Histo1D("m");
+h->Draw();
+~~~
+
 
 ### <a name="callgraphs"></a>Call graphs (storing and reusing sets of transformations)
 **Sets of transformations can be stored as variables** and reused multiple times to create **call graphs** in which
@@ -450,21 +536,21 @@ once, a run is triggered.
 ### <a name="ranges"></a>Ranges
 When `TDataFrame` is not being used in a multi-thread environment (i.e. no call to `EnableImplicitMT` was made),
 `Range` transformations are available. These act very much like filters but instead of basing their decision on
-a filter expression, they rely on `start`,`stop` and `stride` parameters.
+a filter expression, they rely on `begin`,`end` and `stride` parameters.
 
-- `start`: number of entries that will be skipped before starting processing again
-- `stop`: maximum number of entries that will be processed
-- `stride`: only process one entry every `stride` entries
+- `begin`: initial entry number considered for this range.
+- `end`: final entry number (excluded) considered for this range. 0 means that the range goes until the end of the dataset.
+- `stride`: process one entry of the [begin, end) range every `stride` entries. Must be strictly greater than 0.
 
-The actual number of entries processed downstream of a `Range` node will be `(stop - start)/stride` (or less if less
+The actual number of entries processed downstream of a `Range` node will be `(end - begin)/stride` (or less if less
 entries than that are available).
 
 Note that ranges act "locally", not based on the global entry count: `Range(10,50)` means "skip the first 10 entries
 *that reach this node*, let the next 40 entries pass, then stop processing". If a range node hangs from a filter node,
-and the range has a `start` parameter of 10, that means the range will skip the first 10 entries *that pass the
+and the range has a `begin` parameter of 10, that means the range will skip the first 10 entries *that pass the
 preceding filter*.
 
-Ranges allow "early quitting": if all branches of execution of a functional graph reached their `stop` value of
+Ranges allow "early quitting": if all branches of execution of a functional graph reached their `end` value of
 processed entries, the event-loop is immediately interrupted. This is useful for debugging and quick data explorations.
 
 ### <a name="custom-columns"></a> Custom columns
@@ -494,6 +580,15 @@ will create a new column called "pt" the value of which is calculated starting f
 builds a just-in-time compiled function starting from the expression after having deduced the list of necessary branches
 from the names of the variables specified by the user.
 
+#### Custom columns as function of slot and entry number
+
+It is possible to create custom columns also as a function of the processing slot and entry numbers. The methods that can
+be invoked are:
+- `DefineSlot(name, f, columnList)`. In this case the callable f has this signature `R(unsigned int, T1, T2, ...)`: the
+first parameter is the slot number which ranges from 0 to ROOT::GetImplicitMTPoolSize() - 1.
+- `DefineSlotEntry(name, f, columnList)`. In this case the callable f has this signature `R(unsigned int, ULong64_t,
+T1, T2, ...)`: the first parameter is the slot number while the second one the number of the entry being processed.
+
 ##  <a name="actions"></a>Actions
 ### Instant and lazy actions
 Actions can be **instant** or **lazy**. Instant actions are executed as soon as they are called, while lazy actions are
@@ -509,25 +604,29 @@ note that all actions are only executed for events that pass all preceding filte
 
 | **Lazy actions** | **Description** |
 |------------------|-----------------|
+| Aggregate | Execute a user-defined accumulation operation on the processed column values. |
 | Count | Return the number of events processed. |
 | Fill | Fill a user-defined object with the values of the specified branches, as if by calling `Obj.Fill(branch1, branch2, ...). |
 | Histo{1D,2D,3D} | Fill a {one,two,three}-dimensional histogram with the processed branch values. |
-| Max | Return the maximum of processed branch values. |
-| Mean | Return the mean of processed branch values. |
-| Min | Return the minimum of processed branch values. |
+| Max | Return the maximum of processed branch values. If the type of the column is inferred, the return type is `double`, the type of the column otherwise.|
+| Mean | Return the mean of processed branch values.|
+| Min | Return the minimum of processed branch values. If the type of the column is inferred, the return type is `double`, the type of the column otherwise.|
 | Profile{1D,2D} | Fill a {one,two}-dimensional profile with the branch values that passed all filters. |
 | Reduce | Reduce (e.g. sum, merge) entries using the function (lambda, functor...) passed as argument. The function must have signature `T(T,T)` where `T` is the type of the branch. Return the final result of the reduction operation. An optional parameter allows initialization of the result object to non-default values. |
-| Take | Build a collection of values of a branch. |
+| Take | Extract a column from the dataset as a collection of values. If the type of the column is a C-style array, the type stored in the return container is a `std::vector<T>` to guarantee the lifetime of the data involved. |
+| Sum | Return the sum of the values in the column. If the type of the column is inferred, the return type is `double`, the type of the column otherwise. |
 
 | **Instant actions** | **Description** |
 |---------------------|-----------------|
 | Foreach | Execute a user-defined function on each entry. Users are responsible for the thread-safety of this lambda when executing with implicit multi-threading enabled. |
 | ForeachSlot | Same as `Foreach`, but the user-defined function must take an extra `unsigned int slot` as its first parameter. `slot` will take a different value, `0` to `nThreads - 1`, for each thread of execution. This is meant as a helper in writing thread-safe `Foreach` actions when using `TDataFrame` after `ROOT::EnableImplicitMT()`. `ForeachSlot` works just as well with single-thread execution: in that case `slot` will always be `0`. |
-| Snapshot | Writes processed data-set to disk, in a new `TTree` and `TFile`. Custom columns can be saved as well, filtered entries are not saved. Users can specify which columns to save (default is all). |
+| Snapshot | Writes processed data-set to disk, in a new `TTree` and `TFile`. Custom columns can be saved as well, filtered entries are not saved. Users can specify which columns to save (default is all). Snapshot, by default, overwrites the output file if it already exists. |
+| Cache | Caches in contiguous memory columns' entries. Custom columns can be cached as well, filtered entries are not cached. Users can specify which columns to save (default is all). |
+
 
 | **Queries** | **Description** |
 |-----------|-----------------|
-| Report | This is not properly an action, since when `Report` is called it does not book an operation to be performed on each entry. Instead, it interrogates the data-frame directly to print a cutflow report, i.e. statistics on how many entries have been accepted and rejected by the filters. See the section on [named filters](#named-filters-and-cutflow-reports) for a more detailed explanation. |
+| Report | This is not properly an action, since when `Report` is called it does not book an operation to be performed on each entry. Instead, it interrogates the data-frame directly to print a cutflow report, i.e. statistics on how many entries have been accepted and rejected by the filters. See the section on [named filters](#named-filters-and-cutflow-reports) for a more detailed explanation. The method returns a TCutFlowReport instance which can be queried programmatically to get information about the effects of the individual cuts. |
 
 ##  <a name="parallel-execution"></a>Parallel execution
 As pointed out before in this document, `TDataFrame` can transparently perform multi-threaded event loops to speed up
@@ -544,6 +643,7 @@ thread-safety, see [here](#generic-actions).
 
 <a name="reference"></a>
 */
+// clang-format on
 
 ////////////////////////////////////////////////////////////////////////////
 /// \brief Build the dataframe
@@ -558,17 +658,17 @@ thread-safety, see [here](#generic-actions).
 TDataFrame::TDataFrame(std::string_view treeName, TDirectory *dirPtr, const ColumnNames_t &defaultBranches)
    : TInterface<TDFDetail::TLoopManager>(std::make_shared<TDFDetail::TLoopManager>(nullptr, defaultBranches))
 {
-   const std::string treeNameInt(treeName);
    if (!dirPtr) {
       auto msg = "Invalid TDirectory!";
       throw std::runtime_error(msg);
    }
+   const std::string treeNameInt(treeName);
    auto tree = static_cast<TTree *>(dirPtr->Get(treeNameInt.c_str()));
    if (!tree) {
       auto msg = "Tree \"" + treeNameInt + "\" cannot be found!";
       throw std::runtime_error(msg);
    }
-   fProxiedPtr->SetTree(std::shared_ptr<TTree>(tree, [](TTree *) {}));
+   GetProxiedPtr()->SetTree(std::shared_ptr<TTree>(tree, [](TTree *) {}));
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -581,21 +681,39 @@ TDataFrame::TDataFrame(std::string_view treeName, TDirectory *dirPtr, const Colu
 /// booking of actions or transformations.
 /// See TInterface for the documentation of the
 /// methods available.
-TDataFrame::TDataFrame(std::string_view treeName, std::string_view filenameglob,
-                       const ColumnNames_t &defaultBranches)
+TDataFrame::TDataFrame(std::string_view treeName, std::string_view filenameglob, const ColumnNames_t &defaultBranches)
    : TInterface<TDFDetail::TLoopManager>(std::make_shared<TDFDetail::TLoopManager>(nullptr, defaultBranches))
 {
    const std::string treeNameInt(treeName);
    const std::string filenameglobInt(filenameglob);
-   auto chain = new TChain(treeNameInt.c_str());
+   auto chain = std::make_shared<TChain>(treeNameInt.c_str());
    chain->Add(filenameglobInt.c_str());
-   fProxiedPtr->SetTree(std::shared_ptr<TTree>(static_cast<TTree *>(chain)));
+   GetProxiedPtr()->SetTree(chain);
+}
+
+////////////////////////////////////////////////////////////////////////////
+/// \brief Build the dataframe
+/// \param[in] treeName Name of the tree contained in the directory
+/// \param[in] filenames Collection of file names
+/// \param[in] defaultBranches Collection of default branches.
+///
+/// The default branches are looked at in case no branch is specified in the booking of actions or transformations.
+/// See TInterface for the documentation of the methods available.
+TDataFrame::TDataFrame(std::string_view treeName, const std::vector<std::string> &filenames,
+                       const ColumnNames_t &defaultBranches)
+   : TDF::TInterface<TDFDetail::TLoopManager>(std::make_shared<TDFDetail::TLoopManager>(nullptr, defaultBranches))
+{
+   std::string treeNameInt(treeName);
+   auto chain = std::make_shared<TChain>(treeNameInt.c_str());
+   for (auto &fileName : filenames)
+      chain->Add(TDFInternal::ToConstCharPtr(fileName));
+   GetProxiedPtr()->SetTree(chain);
 }
 
 ////////////////////////////////////////////////////////////////////////////
 /// \brief Build the dataframe
 /// \param[in] tree The tree or chain to be studied.
-/// \param[in] defaultBranches Collection of default branches.
+/// \param[in] defaultBranches Collection of default column names to fall back to when none is specified.
 ///
 /// The default branches are looked at in case no branch is specified in the
 /// booking of actions or transformations.
@@ -607,7 +725,7 @@ TDataFrame::TDataFrame(TTree &tree, const ColumnNames_t &defaultBranches)
 }
 
 //////////////////////////////////////////////////////////////////////////
-/// \brief Build the dataframe
+/// \brief Build a dataframe that generates numEntries entries.
 /// \param[in] numEntries The number of entries to generate.
 ///
 /// An empty-source dataframe constructed with a number of entries will
@@ -615,5 +733,16 @@ TDataFrame::TDataFrame(TTree &tree, const ColumnNames_t &defaultBranches)
 /// and it will do so for all the previously-defined temporary branches.
 TDataFrame::TDataFrame(ULong64_t numEntries)
    : TInterface<TDFDetail::TLoopManager>(std::make_shared<TDFDetail::TLoopManager>(numEntries))
+{
+}
+
+//////////////////////////////////////////////////////////////////////////
+/// \brief Build dataframe associated to datasource.
+/// \param[in] ds The data-source object.
+/// \param[in] defaultBranches Collection of default column names to fall back to when none is specified.
+///
+/// A dataframe associated to a datasource will query it to access column values.
+TDataFrame::TDataFrame(std::unique_ptr<TDataSource> ds, const ColumnNames_t &defaultBranches)
+   : TInterface<TDFDetail::TLoopManager>(std::make_shared<TDFDetail::TLoopManager>(std::move(ds), defaultBranches))
 {
 }

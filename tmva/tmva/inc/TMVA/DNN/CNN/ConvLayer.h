@@ -63,6 +63,10 @@ private:
 
    std::vector<Matrix_t> fDerivatives; ///< First fDerivatives of the activations of this layer.
 
+   std::vector<int> fForwardIndices;  ///< Vector of indices used for a fast Im2Col in forward pass
+   std::vector<int> fBackwardIndices;  ///< Vector of indices used for a fast Im2Col in backward pass
+   
+
    EActivationFunction fF; ///< Activation function of the layer.
    ERegularization fReg;   ///< The regularization method.
    Scalar_t fWeightDecay;  ///< The weight decay.
@@ -101,6 +105,12 @@ public:
 
    /*! Prints the info about the layer. */
    void Print() const;
+
+   /*! Writes the information and the weights about the layer in an XML node. */
+   virtual void AddWeightsXMLTo(void *parent);
+
+   /*! Read the information and the weights about the layer from XML node. */
+   virtual void ReadWeightsFromXML(void *parent);
 
    /*! Getters */
    size_t GetFilterDepth() const { return fFilterDepth; }
@@ -207,23 +217,66 @@ TConvLayer<Architecture_t>::~TConvLayer()
 template <typename Architecture_t>
 auto TConvLayer<Architecture_t>::Forward(std::vector<Matrix_t> &input, bool applyDropout) -> void
 {
+
+   fForwardIndices.resize(this->GetNLocalViews() * this->GetNLocalViewPixels() );
+
+   R__ASSERT( input.size() > 0); 
+   Architecture_t::Im2colIndices(fForwardIndices, input[0], this->GetNLocalViews(), this->GetInputHeight(), this->GetInputWidth(), this->GetFilterHeight(),
+                             this->GetFilterWidth(), this->GetStrideRows(), this->GetStrideCols(),
+                             this->GetPaddingHeight(), this->GetPaddingWidth());
+ 
+   
+   Architecture_t::ConvLayerForward(this->GetOutput(), this->GetDerivatives(), input, this->GetWeightsAt(0),  this->GetBiasesAt(0),
+                                    fF, fForwardIndices, this->GetNLocalViews(), this->GetNLocalViewPixels(),
+                                    this->GetDropoutProbability(), applyDropout ); 
+
+#if 0  
+   // in printciple I could make the indices data member of the class
+   Matrix_t inputTr(this->GetNLocalViews(), this->GetNLocalViewPixels());
+   //Matrix_t inputTr2(this->GetNLocalViews(), this->GetNLocalViewPixels());
+   std::vector<int> vIndices(inputTr.GetNrows() * inputTr.GetNcols() );
+   R__ASSERT( input.size() > 0); 
+   Architecture_t::Im2colIndices(vIndices, input[0], this->GetNLocalViews(), this->GetInputHeight(), this->GetInputWidth(), this->GetFilterHeight(),
+                             this->GetFilterWidth(), this->GetStrideRows(), this->GetStrideCols(),
+                             this->GetPaddingHeight(), this->GetPaddingWidth());
+   // batch size loop 
    for (size_t i = 0; i < this->GetBatchSize(); i++) {
 
       if (applyDropout && (this->GetDropoutProbability() != 1.0)) {
          Architecture_t::Dropout(input[i], this->GetDropoutProbability());
       }
 
-      Matrix_t inputTr(this->GetNLocalViews(), this->GetNLocalViewPixels());
-      Architecture_t::Im2col(inputTr, input[i], this->GetInputHeight(), this->GetInputWidth(), this->GetFilterHeight(),
-                             this->GetFilterWidth(), this->GetStrideRows(), this->GetStrideCols(),
-                             this->GetPaddingHeight(), this->GetPaddingWidth());
-
+      inputTr.Zero(); 
+      //inputTr2.Zero(); 
+      // Architecture_t::Im2col(inputTr2, input[i], this->GetInputHeight(), this->GetInputWidth(), this->GetFilterHeight(),
+      //                         this->GetFilterWidth(), this->GetStrideRows(), this->GetStrideCols(),
+      //                         this->GetPaddingHeight(), this->GetPaddingWidth());
+      Architecture_t::Im2colFast(inputTr, input[i], vIndices);
+      // bool diff = false; 
+      // for (int j = 0; j < inputTr.GetNrows(); ++j) { 
+      //    for (int k = 0; k < inputTr.GetNcols(); ++k) {
+      //       if ( inputTr2(j,k) != inputTr(j,k) ) {
+      //          diff = true; 
+      //          std::cout <<  "different im2col for " << j << " , " << k << "  " << inputTr(j,k) << "  shoud be " << inputTr2(j,k) << std::endl;
+      //       }
+      //    }
+      // }
+      // if (diff) {
+      //    std::cout << "ConvLayer:: Different Im2Col for batch " << i  << std::endl;
+      //    printf("Layer parameters : %d x %d , filter %d x %d , stride %d %d , pad %d %d \n",this->GetInputHeight(), this->GetInputWidth(), this->GetFilterHeight(),
+      //                         this->GetFilterWidth(), this->GetStrideRows(), this->GetStrideCols(),
+      //           this->GetPaddingHeight(), this->GetPaddingWidth() );
+      //    // PrintMatrix(inputTr);
+      //    //PrintMatrix(inputTr2);
+      // }         
+      // R__ASSERT(!diff); 
       Architecture_t::MultiplyTranspose(this->GetOutputAt(i), this->GetWeightsAt(0), inputTr);
       Architecture_t::AddConvBiases(this->GetOutputAt(i), this->GetBiasesAt(0));
 
       evaluateDerivative<Architecture_t>(this->GetDerivativesAt(i), fF, this->GetOutputAt(i));
       evaluate<Architecture_t>(this->GetOutputAt(i), fF);
    }
+#endif  
 }
 
 //______________________________________________________________________________
@@ -257,6 +310,45 @@ auto TConvLayer<Architecture_t>::Print() const -> void
    std::cout << "\t\t\t Local Views = " << this->GetNLocalViews()  << std::endl;
    std::cout << "\t\t\t Activation Function = " << static_cast<int>(fF) << std::endl;
 }
+
+//______________________________________________________________________________
+template <typename Architecture_t>
+void TConvLayer<Architecture_t>::AddWeightsXMLTo(void *parent)
+{
+   auto layerxml = gTools().xmlengine().NewChild(parent, 0, "ConvLayer");
+
+   gTools().xmlengine().NewAttr(layerxml, 0, "Depth", gTools().StringFromInt(this->GetDepth()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "FilterHeight", gTools().StringFromInt(this->GetFilterHeight()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "FilterWidth", gTools().StringFromInt(this->GetFilterWidth()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "StrideRows", gTools().StringFromInt(this->GetStrideRows()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "StrideCols", gTools().StringFromInt(this->GetStrideCols()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "PaddingHeight", gTools().StringFromInt(this->GetPaddingHeight()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "PaddingWidth", gTools().StringFromInt(this->GetPaddingWidth()));
+
+
+   int activationFunction = static_cast<int>(this -> GetActivationFunction());
+   gTools().xmlengine().NewAttr(layerxml, 0, "ActivationFunction",
+                                TString::Itoa(activationFunction, 10));
+
+   // write weights and bias matrix 
+   this->WriteMatrixToXML(layerxml, "Weights", this -> GetWeightsAt(0));
+   this->WriteMatrixToXML(layerxml, "Biases",  this -> GetBiasesAt(0));
+
+
+
+   // write All other info like the depth, height, width etc ....
+}
+
+//______________________________________________________________________________
+template <typename Architecture_t>
+void TConvLayer<Architecture_t>::ReadWeightsFromXML(void *parent)
+{
+   // read weights and biases
+   // rest is read before because it is needed before creating the Conv layer
+   this->ReadMatrixXML(parent,"Weights", this -> GetWeightsAt(0));
+   this->ReadMatrixXML(parent,"Biases", this -> GetBiasesAt(0));
+}
+
 
 } // namespace CNN
 } // namespace DNN

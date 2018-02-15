@@ -23,6 +23,32 @@
 #include "TMatrix.h"
 #include "TMVA/Config.h"
 #include "CpuBuffer.h"
+#include <TMVA/Config.h>
+
+//#define DEBUG_TMVA_TCPUMATRIX
+#if defined(DEBUG_TMVA_TCPUMATRIX)
+#define PrintMatrix(mat, text)                                                                             \
+   {                                                                                                       \
+      auto _dpointer = mat.GetRawDataPointer();                                                            \
+      if (_dpointer == NULL) {                                                                             \
+         std::cout << #mat << " is null pointer" << std::endl;                                             \
+         exit(1);                                                                                          \
+      }                                                                                                    \
+      auto _nrows = mat.GetNrows();                                                                        \
+      auto _ncols = mat.GetNcols();                                                                        \
+      std::cout << "---------------------" << text << " " << #mat << "(" << _nrows << "," << _ncols << ")" \
+                << "--------------------" << std::endl;                                                    \
+      for (size_t _i = 0; _i < _nrows; _i++) {                                                               \
+         for (size_t _j = 0; _j < _ncols; _j++) {                                                            \
+            std::cout << mat(_i, _j);                                                                      \
+            if (_j < _ncols - 1) std::cout << ",";                                                         \
+         }                                                                                                 \
+         std::cout << std::endl;                                                                           \
+      }                                                                                                    \
+   }
+#else
+#define PrintMatrix(mat, text)
+#endif
 
 //#define DEBUG_TMVA_TCPUMATRIX
 #if defined(DEBUG_TMVA_TCPUMATRIX)
@@ -101,6 +127,10 @@ public:
    TCpuMatrix & operator=(TCpuMatrix &&)       = default;
    ~TCpuMatrix()                               = default;
 
+   /** Clear content of the matrix and initialize to zero elements
+    */
+   void Zero();
+
    /** Convert to a TMatrixT<Double_t> object. Performs a deep copy of the matrix
     *  elements. */
    operator TMatrixT<Double_t>() const;
@@ -128,7 +158,10 @@ public:
    AFloat *       GetRawDataPointer()        {return fBuffer;}
    const AFloat * GetRawDataPointer()  const {return fBuffer;}
 
-   ROOT::TThreadExecutor &GetThreadExecutor() const { return TMVA::Config::Instance().GetThreadExecutor(); }
+   static ROOT::TThreadExecutor &GetThreadExecutor() { return TMVA::Config::Instance().GetThreadExecutor(); }
+
+    // static function to get the number of elements for task
+   static size_t GetNWorkItems(size_t nelements); 
 
 private:
 
@@ -143,20 +176,45 @@ std::vector<AFloat> TCpuMatrix<AFloat>::fOnes {};
 // Inline Functions.
 //______________________________________________________________________________
 template<typename AFloat>
+size_t TCpuMatrix<AFloat>::GetNWorkItems(size_t nElements) 
+{
+   // const size_t nWorkers = TMVA::Config::Instance().GetNCpu();
+   // return  (nElements > nWorkers) ?  (int) nElements/nWorkers : 1;
+   const size_t nCpu = TMVA::Config::Instance().GetNCpu();
+   if (nElements <= nCpu) return 1;
+   if (nElements < nCpu*20) return nElements/nCpu;
+   return nElements/(nCpu*10); 
+}
+
+   
+//______________________________________________________________________________
+template<typename AFloat>
 template<typename Function_t>
 inline void TCpuMatrix<AFloat>::Map(Function_t &f)
 {
    AFloat  *data = GetRawDataPointer();
+   size_t nelements =  GetNElements();
+   size_t nsteps = TCpuMatrix<AFloat>::GetNWorkItems(nelements);
 
-   auto ff = [data, &f](UInt_t workerID)
+   auto ff = [data, &nsteps, &nelements, &f](UInt_t workerID)
    {
-      data[workerID] = f(data[workerID]);
+      for (size_t j = 0; j < nsteps; ++j) {
+         size_t idx = workerID+j;
+         if (idx >= nelements) break; 
+         data[idx] = f(data[idx]);
+      }
       return 0;
    };
 
-   TMVA::Config::Instance().GetThreadExecutor().Map(ff, ROOT::TSeqI(fNCols * fNRows));
+#ifdef DL_USE_MTE
+   TMVA::Config::Instance().GetThreadExecutor().Foreach(ff, ROOT::TSeqI(0,nelements,nsteps));
+#else
+   for (size_t i = 0;  i < nelements; i+=nsteps)
+      ff(i);
+#endif
 }
 
+//______________________________________________________________________________
 template<typename AFloat>
 template<typename Function_t>
 inline void TCpuMatrix<AFloat>::MapFrom(Function_t &f, const TCpuMatrix &A)
@@ -164,14 +222,38 @@ inline void TCpuMatrix<AFloat>::MapFrom(Function_t &f, const TCpuMatrix &A)
          AFloat  *dataB = GetRawDataPointer();
    const AFloat  *dataA = A.GetRawDataPointer();
 
-   auto ff = [&dataB, &dataA, &f](UInt_t workerID)
+   size_t nelements =  GetNElements();
+   R__ASSERT(nelements == A.GetNElements() );
+   size_t nsteps = TCpuMatrix<AFloat>::GetNWorkItems(nelements);
+
+   auto ff = [&dataB, &dataA,  &nsteps, &nelements, &f](UInt_t workerID)
    {
-      dataB[workerID] = f(dataA[workerID]);
+      for (size_t j = 0; j < nsteps; ++j) {
+         size_t idx = workerID+j;
+         if (idx >= nelements) break; 
+         dataB[idx] = f(dataA[idx]);
+      }
       return 0;
    };
-
-   TMVA::Config::Instance().GetThreadExecutor().Map(ff, ROOT::TSeqI(fNCols * fNRows));
+#ifdef DL_USE_MTE
+   TMVA::Config::Instance().GetThreadExecutor().Foreach(ff, ROOT::TSeqI(0,nelements,nsteps));
+#else
+   for (size_t i = 0;  i < nelements; i+=nsteps)
+      ff(i);
+#endif
 }
+
+//______________________________________________________________________________
+template<typename AFloat>
+void TCpuMatrix<AFloat>::Zero()  
+{
+   for (size_t j = 0; j < fNCols; j++) {
+      for (size_t i = 0; i < fNRows; i++) {
+         (*this)(i, j) = 0;
+      }
+   }
+}
+
 
 } // namespace DNN
 } // namespace TMVA

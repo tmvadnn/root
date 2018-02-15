@@ -366,6 +366,8 @@ static int GetVisualStudioVersionCompiledWith() {
   return (_MSC_VER / 100) - 6;
 #elif (_MSC_VER < 1910)
   return 14;
+#elif (_MSC_VER < 1920)
+  return 15;
 #else
   #error "Unsupported/Untested _MSC_VER"
   // As of now this is what is should be...have fun!
@@ -413,6 +415,16 @@ bool GetVisualStudioDirs(std::string& Path, std::string* WinSDK,
   }
 
   const char* Msg = Verbose ? "compiled" : nullptr;
+
+  // The Visual Studio 2017 path is very different than the previous versions,
+  // and even the registry entries are different, so for now let's try the
+  // trivial way first (using the 'VCToolsInstallDir' environment variable)
+  if (const char* VCToolsInstall = ::getenv("VCToolsInstallDir")) {
+    trimString(VCToolsInstall, "\\DUMMY", Path);
+    if (Verbose)
+      cling::errs() << "Using VCToolsInstallDir '" << VCToolsInstall << "'\n";
+    return true;
+  }
 
   // Try for the version compiled with first
   const int VSVersion = GetVisualStudioVersionCompiledWith();
@@ -521,12 +533,34 @@ const void* DLOpen(const std::string& Path, std::string* Err) {
   return reinterpret_cast<void*>(dyLibHandle);
 }
 
+const void *CheckImp(void *addr, bool dllimp) {
+  // __imp_ variables are indirection pointers, so use malloc to simulate that
+  if (dllimp) {
+    void **imp_addr = (void**)malloc(sizeof(void*));
+    *imp_addr = addr;
+    addr = (void*)imp_addr;
+  }
+  return (const void *)addr;
+}
+
 const void* DLSym(const std::string& Name, std::string* Err) {
  #ifdef _WIN64
   const DWORD Flags = LIST_MODULES_64BIT;
  #else
   const DWORD Flags = LIST_MODULES_32BIT;
  #endif
+
+  bool dllimp = false;
+  std::string s = Name;
+  // remove the leading '__imp_' from the symbol (will be replaced by an
+  // indirection pointer later on)
+  if (s.compare(0, 6, "__imp_") == 0) {
+    dllimp = true;
+    s.replace(0, 6, "");
+  }
+  // remove the leading '_' from the symbol
+  if (s.compare(0, 1, "_") == 0)
+    s.replace(0, 1, "");
 
   DWORD Bytes;
   std::string ErrStr;
@@ -542,8 +576,8 @@ const void* DLSym(const std::string& Name, std::string* Err) {
 
     // In reverse so user loaded modules are searched first
     for (auto It = Modules.rbegin(), End = Modules.rend(); It < End; ++It) {
-      if (const void* Addr = ::GetProcAddress(*It, Name.c_str()))
-            return Addr;
+      if (void* Addr = ::GetProcAddress(*It, s.c_str()))
+        return CheckImp(Addr, dllimp);
     }
     if (NumNeeded > NumFirst) {
       // The number of modules was too small to get them all, so call again
@@ -551,8 +585,8 @@ const void* DLSym(const std::string& Name, std::string* Err) {
       if (::EnumProcessModulesEx(::GetCurrentProcess(), &Modules[0],
                                Modules.capacity_in_bytes(), &Bytes, Flags) != 0) {
         for (DWORD i = NumNeeded-1; i > NumFirst; --i) {
-          if (const void* Addr = ::GetProcAddress(Modules[i], Name.c_str()))
-            return Addr;
+          if (void* Addr = ::GetProcAddress(Modules[i], s.c_str()))
+            return CheckImp(Addr, dllimp);
         }
       } else if (Err)
         GetLastErrorAsString(*Err, "EnumProcessModulesEx");

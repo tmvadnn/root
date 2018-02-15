@@ -263,7 +263,7 @@ public:
    Scalar_t Loss(const Matrix_t &groundTruth, const Matrix_t &weights, bool includeRegularization = true) const;
 
    /*! Function for evaluating the loss, based on the propagation of the given input. */
-   Scalar_t Loss(std::vector<Matrix_t> input, const Matrix_t &groundTruth, const Matrix_t &weights,
+   Scalar_t Loss(std::vector<Matrix_t> &input, const Matrix_t &groundTruth, const Matrix_t &weights,
                  bool applyDropout = false, bool includeRegularization = true);
 
    /*! Prediction based on activations stored in the last layer. */
@@ -373,9 +373,12 @@ auto TDeepNet<Architecture_t, Layer_t>::calculateDimension(int imgDim, int fltDi
 {
    Scalar_t dimension = ((imgDim - fltDim + 2 * padding) / stride) + 1;
    if (!isInteger(dimension) || dimension <= 0) {
-      std::cout << "calculateDimension - Not compatible hyper parameters (imgDim, fltDim, padding, stride)"
-                << imgDim << " , " << fltDim << " , " <<  padding << " , " << stride<< " resulting dim is " << dimension << std::endl;
-      std::exit(EXIT_FAILURE);
+      this->Print(); 
+      int iLayer = fLayers.size(); 
+      Fatal("calculateDimension","Not compatible hyper parameters for layer %d - (imageDim, filterDim, padding, stride) %zu , %zu , %zu , %zu");
+      // std::cout << " calculateDimension - Not compatible hyper parameters (imgDim, fltDim, padding, stride)"
+      //           << imgDim << " , " << fltDim << " , " <<  padding << " , " << stride<< " resulting dim is " << dimension << std::endl;
+      // std::exit(EXIT_FAILURE);
    }
 
    return (size_t)dimension;
@@ -659,6 +662,11 @@ TReshapeLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddReshapeLaye
       outputNSlices = 1;
       outputNRows = this->GetBatchSize();
       outputNCols = depth * height * width;
+      size_t inputNCols =  inputDepth * inputHeight *  inputWidth;
+      if (outputNCols != inputNCols ) {
+         Fatal("AddReshapeLayer","Dimensions not compatibles - product of input %zu x %zu % x %zu should be equal to output %zu x %zu %zu ",
+               inputDepth, inputHeight, inputWidth, depth, height, width); 
+      }
    } else {
       outputNSlices = this->GetBatchSize();
       outputNRows = depth;
@@ -1084,7 +1092,7 @@ auto TDeepNet<Architecture_t, Layer_t>::Loss(const Matrix_t &groundTruth, const 
 
 //______________________________________________________________________________
 template <typename Architecture_t, typename Layer_t>
-auto TDeepNet<Architecture_t, Layer_t>::Loss(std::vector<Matrix_t> input, const Matrix_t &groundTruth,
+auto TDeepNet<Architecture_t, Layer_t>::Loss(std::vector<Matrix_t> &input, const Matrix_t &groundTruth,
                                              const Matrix_t &weights, bool applyDropout, bool includeRegularization)
    -> Scalar_t
 {
@@ -1125,6 +1133,7 @@ auto TDeepNet<Architecture_t, Layer_t>::Print() -> void
    std::cout << "\t Layers: " << std::endl;
 
    for (size_t i = 0; i < fLayers.size(); i++) {
+      std::cout << "Layer " << i << "\t";
       fLayers[i]->Print();
    }
 }
