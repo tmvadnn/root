@@ -516,7 +516,7 @@ void TCpu<AFloat>::CalculateConvBiasGradients(TCpuMatrix<AFloat> &biasGradients,
 template <typename AFloat>
 void TCpu<AFloat>::Downsample(TCpuMatrix<AFloat> &A, TCpuMatrix<AFloat> &B, const TCpuMatrix<AFloat> &C,
                               size_t imgHeight, size_t imgWidth, size_t fltHeight, size_t fltWidth, size_t strideRows,
-                              size_t strideCols)
+                              size_t strideCols, std::string method = "max")
 {
    // image boudaries
    int imgHeightBound = imgHeight - (fltHeight - 1) / 2 - 1;
@@ -528,15 +528,31 @@ void TCpu<AFloat>::Downsample(TCpuMatrix<AFloat> &A, TCpuMatrix<AFloat> &B, cons
       for (int j = fltWidth / 2; j <= imgWidthBound; j += strideCols) {
          // within local views
          for (int m = 0; m < (Int_t)C.GetNrows(); m++) {
-            AFloat value = -std::numeric_limits<AFloat>::max();
+            if (method == 'max') {
+               AFloat value = -std::numeric_limits<AFloat>::max();
 
-            for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
-               for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
-                  if (C(m, k * imgWidth + l) > value) {
-                     value = C(m, k * imgWidth + l);
-                     B(m, currLocalView) = k * imgWidth + l;
+               for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
+                  for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
+                     if (C(m, k * imgWidth + l) > value) {
+                        value = C(m, k * imgWidth + l);
+                        B(m, currLocalView) = k * imgWidth + l;
+                     }
                   }
                }
+            }
+            else if (method == 'avg') {
+               AFloat value = 0.0;
+               counter = 0;
+               for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
+                  for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
+                     value += C(m, k * imgWidth + l);
+                     counter += 1;
+                  }
+               }
+               value /= counter;
+            }
+            else {
+               throw std::invalid_argument( "The method argument can be either 'max' or 'avg', you supplied " + method);
             }
             A(m, currLocalView) = value;
          }

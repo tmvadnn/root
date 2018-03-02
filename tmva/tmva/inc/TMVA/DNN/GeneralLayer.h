@@ -57,7 +57,7 @@ protected:
    size_t fHeight; ///< The height of the layer.
    size_t fWidth;  ///< The width of this layer.
 
-   bool fIsTraining; ///< Flag indicatig the mode
+   bool fIsTraining; ///< Flag indicating the mode
 
    std::vector<Matrix_t> fWeights; ///< The weights associated to the layer.
    std::vector<Matrix_t> fBiases;  ///< The biases associated to the layer.
