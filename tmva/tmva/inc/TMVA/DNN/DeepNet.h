@@ -39,7 +39,7 @@
 #include "TMVA/DNN/ReshapeLayer.h"
 
 #include "TMVA/DNN/CNN/ConvLayer.h"
-#include "TMVA/DNN/CNN/MaxPoolLayer.h"
+#include "TMVA/DNN/CNN/PoolLayer.h"
 
 #include "TMVA/DNN/RNN/RNNLayer.h"
 
@@ -129,11 +129,11 @@ public:
     *  well as the dropout probability. The depth is same as the previous
     *  layer depth. Based on these parameters, it calculates the width and
     *  height of the pooling layer. */
-   TMaxPoolLayer<Architecture_t> *AddMaxPoolLayer(size_t frameHeight, size_t frameWidth, size_t strideRows,
-                                                  size_t strideCols, Scalar_t dropoutProbability = 1.0);
-   /*! Function for adding Max Pooling layer in the Deep Neural Network,
+   TPoolLayer<Architecture_t> *AddPoolLayer(size_t frameHeight, size_t frameWidth, size_t strideRows,
+                                                  size_t strideCols, Scalar_t dropoutProbability = 1.0, std::string method = "max");
+   /*! Function for adding a Pooling layer in the Deep Neural Network,
     *  when the layer is already created. */
-   void AddMaxPoolLayer(TMaxPoolLayer<Architecture_t> *maxPoolLayer);
+   void AddPoolLayer(TPoolLayer<Architecture_t> *PoolLayer);
 
    /*! Function for adding Recurrent Layer in the Deep Neural Network,
     * with given parameters */
@@ -449,52 +449,53 @@ void TDeepNet<Architecture_t, Layer_t>::AddConvLayer(TConvLayer<Architecture_t> 
 
 //______________________________________________________________________________
 template <typename Architecture_t, typename Layer_t>
-TMaxPoolLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddMaxPoolLayer(size_t frameHeight, size_t frameWidth,
-                                                                                  size_t strideRows, size_t strideCols,
-                                                                                  Scalar_t dropoutProbability)
+TPoolLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddPoolLayer(size_t frameHeight, size_t frameWidth,
+                                                                            size_t strideRows, size_t strideCols,
+                                                                            Scalar_t dropoutProbability,
+                                                                            std::string method)
 {
-   size_t batchSize = this->GetBatchSize();
-   size_t inputDepth;
-   size_t inputHeight;
-   size_t inputWidth;
-   size_t height;
-   size_t width;
-   size_t outputNSlices = this->GetBatchSize();
-   size_t outputNRows;
-   size_t outputNCols;
+    size_t batchSize = this->GetBatchSize();
+    size_t inputDepth;
+    size_t inputHeight;
+    size_t inputWidth;
+    size_t height;
+    size_t width;
+    size_t outputNSlices = this->GetBatchSize();
+    size_t outputNRows;
+    size_t outputNCols;
 
-   if (fLayers.size() == 0) {
-      inputDepth = this->GetInputDepth();
-      inputHeight = this->GetInputHeight();
-      inputWidth = this->GetInputWidth();
-   } else {
-      Layer_t *lastLayer = fLayers.back();
-      inputDepth = lastLayer->GetDepth();
-      inputHeight = lastLayer->GetHeight();
-      inputWidth = lastLayer->GetWidth();
-   }
+    if (fLayers.size() == 0) {
+        inputDepth = this->GetInputDepth();
+        inputHeight = this->GetInputHeight();
+        inputWidth = this->GetInputWidth();
+    } else {
+        Layer_t *lastLayer = fLayers.back();
+        inputDepth = lastLayer->GetDepth();
+        inputHeight = lastLayer->GetHeight();
+        inputWidth = lastLayer->GetWidth();
+    }
 
-   height = calculateDimension(inputHeight, frameHeight, 0, strideRows);
-   width = calculateDimension(inputWidth, frameWidth, 0, strideCols);
+    height = calculateDimension(inputHeight, frameHeight, 0, strideRows);
+    width = calculateDimension(inputWidth, frameWidth, 0, strideCols);
 
-   outputNRows = inputDepth;
-   outputNCols = height * width;
+    outputNRows = inputDepth;
+    outputNCols = height * width;
 
-   TMaxPoolLayer<Architecture_t> *maxPoolLayer = new TMaxPoolLayer<Architecture_t>(
-      batchSize, inputDepth, inputHeight, inputWidth, height, width, outputNSlices, outputNRows, outputNCols,
-      frameHeight, frameWidth, strideRows, strideCols, dropoutProbability);
+    TPoolLayer <Architecture_t> *PoolLayer = new TPoolLayer<Architecture_t>(
+            batchSize, inputDepth, inputHeight, inputWidth, height, width, outputNSlices, outputNRows, outputNCols,
+            frameHeight, frameWidth, strideRows, strideCols, dropoutProbability, method);
 
-   // But this creates a copy or what?
-   fLayers.push_back(maxPoolLayer);
+    // But this creates a copy or what?
+    fLayers.push_back(PoolLayer);
 
-   return maxPoolLayer;
+    return PoolLayer;
+
 }
-
 //______________________________________________________________________________
 template <typename Architecture_t, typename Layer_t>
-void TDeepNet<Architecture_t, Layer_t>::AddMaxPoolLayer(TMaxPoolLayer<Architecture_t> *maxPoolLayer)
+void TDeepNet<Architecture_t, Layer_t>::AddPoolLayer(TPoolLayer<Architecture_t> *PoolLayer)
 {
-   fLayers.push_back(maxPoolLayer);
+   fLayers.push_back(PoolLayer);
 }
 
 //______________________________________________________________________________
