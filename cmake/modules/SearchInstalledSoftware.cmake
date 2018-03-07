@@ -52,7 +52,7 @@ if(builtin_zlib)
     ${CMAKE_SOURCE_DIR}/core/zip/src/inftrees.c
     ${CMAKE_SOURCE_DIR}/core/zip/src/trees.c
     ${CMAKE_SOURCE_DIR}/core/zip/src/uncompr.c
-    ${CMAKE_SOURCE_DIR}/core/zip/src/zutil.c)
+    ${CMAKE_SOURCE_DIR}/core/zip/src/zutil.c ../../tmva/tmva/inc/TMVA/DNN/CNN/PoolLayer.h)
   add_library(ZLIB STATIC ${zlib_sources})
   set_target_properties(ZLIB PROPERTIES COMPILE_FLAGS "-fPIC -I${CMAKE_SOURCE_DIR}/core/zip/inc")
   set(ZLIB_LIBRARY " " CACHE PATH "" FORCE)
