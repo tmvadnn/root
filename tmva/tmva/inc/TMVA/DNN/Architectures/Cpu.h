@@ -22,6 +22,7 @@
 
 #include "Cpu/CpuBuffer.h"
 #include "Cpu/CpuMatrix.h"
+#include "TMVA/DNN/CNN/PoolLayer.h"
 #include <vector>
 
 namespace TMVA
@@ -40,6 +41,7 @@ namespace DNN
 template<typename AReal = Real_t>
 class TCpu
 {
+
 public:
 
    using Scalar_t       = AReal;
@@ -354,30 +356,27 @@ public:
 
    //____________________________________________________________________________
    //
-   //  Max Pooling Layer Propagation
+   //  Pooling Layer Propagation
    //____________________________________________________________________________
-   /** @name Forward Propagation in Max Pooling Layer
+   /** @name Forward Propagation in a Pooling Layer
     */
    ///@{
 
-   /** Downsample the matrix \p C to the matrix \p A, using max
-    * operation, such that the winning indices are stored in matrix
-    * \p B. */
-   static void Downsample(TCpuMatrix<AReal> &A, TCpuMatrix<AReal> &B, const TCpuMatrix<AReal> &C, size_t imgHeight,
-                          size_t imgWidth, size_t fltHeight, size_t fltWidth, size_t strideRows, size_t strideCols);
+   /** Downsample the matrix \p C to the matrix \p A, using the
+    * pooling layer \p layer.
+    */
+   static void Downsample(CNN::TPoolLayer<TCpu> *layer, const TCpuMatrix<AReal> &input, size_t batchIndex);
 
    ///@}
 
-   /** @name Backward Propagation in Max Pooling Layer
+   /** @name Backward Propagation in a Pooling Layer
     */
    ///@{
-   /** Perform the complete backward propagation step in a Pooling Layer. Based on the
-    *  winning idices stored in the index matrix, it just forwards the actiovation
-    *  gradients to the previous layer. */
-   static void MaxPoolLayerBackward(std::vector<TCpuMatrix<AReal>> &activationGradientsBackward,
-                                    const std::vector<TCpuMatrix<AReal>> &activationGradients,
-                                    const std::vector<TCpuMatrix<AReal>> &indexMatrix, size_t batchSize, size_t depth,
-                                    size_t nLocalViews);
+
+   /** Perform the complete backward propagation step in a Pooling Layer. */
+   static void PoolLayerBackward(std::vector<TCpuMatrix<AReal>> &activationGradientsBackward,
+                                 CNN::TPoolLayer<TCpu> const * const layer);
+
 
    ///@}
 
@@ -401,7 +400,8 @@ public:
     *  tensor \p B. */
    static void Deflatten(std::vector<TCpuMatrix<AReal>> &A, const TCpuMatrix<AReal> &B, size_t index, size_t nRows,
                          size_t nCols);
-   /** Rearrage data accoring to time fill B x T x D out with T x B x D matrix in*/
+
+   /** Rearrange data accoring to time fill B x T x D out with T x B x D matrix in*/
    static void Rearrange(std::vector<TCpuMatrix<AReal>> &out, const std::vector<TCpuMatrix<AReal>> &in); 
 
 
