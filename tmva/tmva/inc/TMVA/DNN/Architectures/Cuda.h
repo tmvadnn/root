@@ -366,7 +366,7 @@ public:
    /** Perform the complete backward propagation step in a Pooling Layer. Based on the
     *  winning idices stored in the index matrix, it just forwards the actiovation
     *  gradients to the previous layer. */
-   static void MaxPoolLayerBackward(std::vector<TCudaMatrix<AFloat>> &activationGradientsBackward,
+   static void PoolLayerBackward(std::vector<TCudaMatrix<AFloat>> &activationGradientsBackward,
                                     const std::vector<TCudaMatrix<AFloat>> &activationGradients,
                                     const std::vector<TCudaMatrix<AFloat>> &indexMatrix, size_t batchSize, size_t depth,
                                     size_t nLocalViews);

@@ -266,7 +266,7 @@ void TCuda<AFloat>::Downsample(TCudaMatrix<AFloat> &A,
 
 /____________________________________________________________________________
 template<typename AFloat>
-void TCuda<AFloat>::MaxPoolLayerBackward(std::vector<TCudaMatrix<AFloat>> & activationGradientsBackward,
+void TCuda<AFloat>::PoolLayerBackward(std::vector<TCudaMatrix<AFloat>> & activationGradientsBackward,
                                          const std::vector<TCudaMatrix<AFloat>> & activationGradients,
                                          const std::vector<TCudaMatrix<AFloat>> & indexMatrix,
                                          size_t batchSize,
