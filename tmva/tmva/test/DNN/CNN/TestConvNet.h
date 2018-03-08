@@ -96,41 +96,39 @@ auto testRotateWeights(typename Architecture::Matrix_t &A, typename Architecture
 //______________________________________________________________________________
 template <typename Architecture>
 auto testDownsample(const typename Architecture::Matrix_t &A, const typename Architecture::Matrix_t &ind,
-                    const typename Architecture::Matrix_t &B, size_t imgHeight, size_t imgWidth, size_t fltHeight,
-                    size_t fltWidth, size_t strideRows, size_t strideCols) -> bool
+                    const typename Architecture::Matrix_t &B, CNN::TPoolLayer<Architecture> &layer) -> bool
 {
 
-   size_t m1, n1;
-   m1 = B.GetNrows();
-   n1 = B.GetNcols();
+    size_t m1, n1;
+    m1 = B.GetNrows();
+    n1 = B.GetNcols();
 
-   typename Architecture::Matrix_t ADown(m1, n1);
+    size_t m2, n2;
+    m2 = ind.GetNrows();
+    n2 = ind.GetNcols();
 
-   size_t m2, n2;
-   m2 = ind.GetNrows();
-   n2 = ind.GetNcols();
+    Architecture::Downsample(&layer, A, 0);
 
-   typename Architecture::Matrix_t AInd(m2, n2);
+    typename Architecture::Matrix_t ADown = layer.GetOutputAt(0);
+    typename Architecture::Matrix_t AInd = layer.GetIndexMatrix()[0];
 
-   Architecture::Downsample(ADown, AInd, A, imgHeight, imgWidth, fltHeight, fltWidth, strideRows, strideCols);
+    for (size_t i = 0; i < m1; i++) {
+        for (size_t j = 0; j < n1; j++) {
+            if (ADown(i, j) != B(i, j)) {
+                return false;
+            }
+        }
+    }
 
-   for (size_t i = 0; i < m1; i++) {
-      for (size_t j = 0; j < n1; j++) {
-         if (ADown(i, j) != B(i, j)) {
-            return false;
-         }
-      }
-   }
+    for (size_t i = 0; i < m2; i++) {
+        for (size_t j = 0; j < n2; j++) {
+            if (AInd(i, j) != ind(i, j)) {
+                return false;
+            }
+        }
+    }
 
-   for (size_t i = 0; i < m2; i++) {
-      for (size_t j = 0; j < n2; j++) {
-         if (AInd(i, j) != ind(i, j)) {
-            return false;
-         }
-      }
-   }
-
-   return true;
+    return true;
 }
 
 /** Flatten the 3D tensor A using the Flatten function and compare it to

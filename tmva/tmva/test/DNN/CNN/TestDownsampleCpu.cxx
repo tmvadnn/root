@@ -98,6 +98,10 @@ void test1()
 
    size_t width = calculateDimension(imgWidthTest1, fltWidthTest1, 0, strideColsTest1);
 
+   CNN::TPoolLayer<TCpu<double>> layer = CNN::TPoolLayer<TCpu<double>>(1, imgDepthTest1, imgHeightTest1, imgWidthTest1, height, width, imgDepthTest1,
+                              height, width, fltHeightTest1, fltWidthTest1, strideRowsTest1, strideColsTest1,
+                              1.0, "max");
+
    Matrix_t idx(imgDepthTest1, height * width);
    Matrix_t B(imgDepthTest1, height * width);
 
@@ -108,8 +112,7 @@ void test1()
       }
    }
 
-   bool status = testDownsample<TCpu<double>>(A, idx, B, imgHeightTest1, imgWidthTest1, fltHeightTest1, fltWidthTest1,
-                                              strideRowsTest1, strideColsTest1);
+   bool status = testDownsample<TCpu<double>>(A, idx, B, layer);
 
    if (status)
       std::cout << "Test passed!" << std::endl;
@@ -155,6 +158,12 @@ void test2()
 
    size_t width = calculateDimension(imgWidthTest2, fltWidthTest2, 0, strideColsTest2);
 
+   CNN::TPoolLayer<TCpu<double>> layer = CNN::TPoolLayer<TCpu<double>>(1, imgDepthTest2, imgHeightTest2, imgWidthTest2,
+                              height, width, imgDepthTest2,
+                              height, width, fltHeightTest2,
+                              fltWidthTest2, strideRowsTest2,
+                              strideColsTest2, 1.0, "max");
+
    Matrix_t idx(imgDepthTest2, height * width);
    Matrix_t B(imgDepthTest2, height * width);
 
@@ -165,8 +174,7 @@ void test2()
       }
    }
 
-   bool status = testDownsample<TCpu<double>>(A, idx, B, imgHeightTest2, imgWidthTest2, fltHeightTest2, fltWidthTest2,
-                                              strideRowsTest2, strideColsTest2);
+   bool status = testDownsample<TCpu<double>>(A, idx, B, layer);
 
    if (status)
       std::cout << "Test passed!" << std::endl;
