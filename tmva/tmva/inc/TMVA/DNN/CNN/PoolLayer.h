@@ -72,7 +72,7 @@ private:
 
     Scalar_t fDropoutProbability; ///< Probability that an input is active.
 
-    std::string method; ///< Method to be used for pooling.
+    std::string fMethod; ///< Method to be used for pooling.
 
 public:
     /*! Constructor. */
@@ -139,7 +139,7 @@ public:
     size_t GetNLocalViews() const { return fNLocalViews; }
 
     Scalar_t GetDropoutProbability() const { return fDropoutProbability; }
-    std::string GetMethod() const {return method; }
+    std::string GetMethod() const {return fMethod; }
 };
 
 //______________________________________________________________________________
@@ -152,9 +152,9 @@ TPoolLayer<Architecture_t>::TPoolLayer(size_t batchSize, size_t inputDepth, size
                                         0, 0, 0, outputNSlices, outputNRows, outputNCols, EInitialization::kZero),
           fFrameHeight(frameHeight), fFrameWidth(frameWidth), fStrideRows(strideRows),
           fStrideCols(strideCols), fNLocalViewPixels(inputDepth * frameHeight * frameWidth), fNLocalViews(height * width),
-          fDropoutProbability(dropoutProbability), method(method)
+          fDropoutProbability(dropoutProbability), fMethod(method)
 {
-    if(method == "max") {
+    if(fMethod == "max") {
         for (size_t i = 0; i < this->GetBatchSize(); i++) {
             indexMatrix.emplace_back(this->GetDepth(), this->GetNLocalViews());
         }
@@ -168,9 +168,9 @@ TPoolLayer<Architecture_t>::TPoolLayer(TPoolLayer<Architecture_t> *layer)
         : VGeneralLayer<Architecture_t>(layer), fFrameHeight(layer->GetFrameHeight()),
           fFrameWidth(layer->GetFrameWidth()), fStrideRows(layer->GetStrideRows()), fStrideCols(layer->GetStrideCols()),
           fNLocalViewPixels(layer->GetNLocalViewPixels()), fNLocalViews(layer->GetNLocalViews()),
-          fDropoutProbability(layer->GetDropoutProbability()), method(layer->method)
+          fDropoutProbability(layer->GetDropoutProbability()), fMethod(layer->method)
 {
-    if(method == "max") {
+    if(fMethod == "max") {
         for (size_t i = 0; i < layer->GetBatchSize(); i++) {
             indexMatrix.emplace_back(layer->GetDepth(), layer->GetNLocalViews());
         }
@@ -183,9 +183,9 @@ TPoolLayer<Architecture_t>::TPoolLayer(const TPoolLayer &layer)
         : VGeneralLayer<Architecture_t>(layer), fFrameHeight(layer.fFrameHeight),
           fFrameWidth(layer.fFrameWidth), fStrideRows(layer.fStrideRows), fStrideCols(layer.fStrideCols),
           fNLocalViewPixels(layer.fNLocalViewPixels), fNLocalViews(layer.fNLocalViews),
-          fDropoutProbability(layer.fDropoutProbability), method(layer.method)
+          fDropoutProbability(layer.fDropoutProbability), fMethod(layer.method)
 {
-    if(method == "max") {
+    if(fMethod == "max") {
         for (size_t i = 0; i < layer.fBatchSize; i++) {
             indexMatrix.emplace_back(layer.fDepth, layer.fNLocalViews);
         }
