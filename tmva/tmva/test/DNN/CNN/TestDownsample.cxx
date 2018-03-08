@@ -199,7 +199,7 @@ void test2()
    size_t strideRowsTest2 = 1;
    size_t strideColsTest2 = 3;
     
-    
+
    Matrix_t A(imgDepthTest2, imgHeightTest2 * imgWidthTest2);
     
    for(size_t i = 0; i < (size_t) A.GetNrows(); i++){
@@ -207,7 +207,6 @@ void test2()
          A(i, j) = imgTest2[i][j];
       }
    }
-    
     
    size_t height = calculateDimension(imgHeightTest2, fltHeightTest2,
                                       0, strideRowsTest2);
@@ -226,8 +225,8 @@ void test2()
    Matrix_t idx(imgDepthTest2,  height * width);
    Matrix_t B(imgDepthTest2, height * width);
     
-   for(size_t i = 0; i < (size_t) B.GetNrows(); i++){
-      for(size_t j = 0; j < (size_t) B.GetNcols(); j++){
+   for(size_t i = 0; i < (size_t)B.GetNrows(); i++){
+      for(size_t j = 0; j < (size_t)B.GetNcols(); j++){
          idx(i, j) = answerIdxTest2[i][j];
          B(i, j) = answerTest2[i][j];
       }

@@ -98,32 +98,25 @@ template <typename Architecture>
 auto testDownsample(const typename Architecture::Matrix_t &A, const typename Architecture::Matrix_t &ind,
                     const typename Architecture::Matrix_t &B, CNN::TPoolLayer<Architecture> &layer) -> bool
 {
-
-    size_t m1, n1;
-    m1 = B.GetNrows();
-    n1 = B.GetNcols();
-
-    size_t m2, n2;
-    m2 = ind.GetNrows();
-    n2 = ind.GetNcols();
-
     Architecture::Downsample(&layer, A, 0);
 
-    typename Architecture::Matrix_t ADown = layer.GetOutputAt(0);
+    std::vector<typename Architecture::Matrix_t> ADown = layer.GetOutput();
+
+    size_t depth = ADown.size();
+    size_t nRows = ADown[0].GetNrows();
+    size_t nCols = ADown[0].GetNcols();
+
     typename Architecture::Matrix_t AInd = layer.GetIndexMatrix()[0];
 
-    for (size_t i = 0; i < m1; i++) {
-        for (size_t j = 0; j < n1; j++) {
-            if (ADown(i, j) != B(i, j)) {
-                return false;
-            }
-        }
-    }
-
-    for (size_t i = 0; i < m2; i++) {
-        for (size_t j = 0; j < n2; j++) {
-            if (AInd(i, j) != ind(i, j)) {
-                return false;
+    for (size_t d = 0; d < depth; d++) {
+        for (size_t r = 0; r < nRows; r++) {
+            for (size_t c = 0; c < nCols; c++) {
+                if (ADown[d](r, c) != B(d, c + r * nCols)) {
+                    return false;
+                }
+                if (AInd(d, c + r * nCols) != ind(d, c + r * nCols)) {
+                    return false;
+                }
             }
         }
     }

@@ -515,54 +515,56 @@ void TCpu<AFloat>::CalculateConvBiasGradients(TCpuMatrix<AFloat> &biasGradients,
 template <typename AFloat>
 void TCpu<AFloat>::Downsample(CNN::TPoolLayer<TCpu> *layer, const TCpuMatrix<AFloat> &input, size_t batchIndex)
 {
-   // unpack frequently used layer internals
-   size_t inHeight = layer->GetInputHeight(), inWidth = layer->GetInputWidth();
-   size_t fltHeight = layer->GetFrameHeight(), fltWidth = layer->GetFrameWidth();
-   size_t strideRows = layer->GetStrideRows(), strideCols = layer->GetStrideCols();
-   std::string method = layer->GetMethod();
-   TCpuMatrix<AFloat> &output = layer->GetOutputAt(batchIndex);
+    // unpack frequently used layer internals
+    size_t inHeight = layer->GetInputHeight(), inWidth = layer->GetInputWidth();
+    size_t fltHeight = layer->GetFrameHeight(), fltWidth = layer->GetFrameWidth();
+    size_t strideRows = layer->GetStrideRows(), strideCols = layer->GetStrideCols();
+    size_t outWidth = layer->GetWidth();
+    std::string method = layer->GetMethod();
 
-   // image boundaries
-   int imgHeightBound = inHeight - (fltHeight - 1) / 2 - 1;
-   int imgWidthBound = inWidth - (fltWidth - 1) / 2 - 1;
-   size_t currLocalView = 0;
+    // image boundaries
+    int imgHeightBound = inHeight - (fltHeight - 1) / 2 - 1;
+    int imgWidthBound = inWidth - (fltWidth - 1) / 2 - 1;
+    size_t outRow = 0, outCol = 0;
 
-   // centers
-   for (int i = fltHeight / 2; i <= imgHeightBound; i += strideRows) {
-      for (int j = fltWidth / 2; j <= imgWidthBound; j += strideCols) {
-         // within local views
-         for (int m = 0; m < (Int_t)input.GetNrows(); m++) {
-            AFloat value = 0.0;
-            if (method == "max") {
-               value = -std::numeric_limits<AFloat>::max();
+    // centers
+    for (int i = fltHeight / 2; i <= imgHeightBound; i += strideRows) {
+        outCol = 0;
+        for (int j = fltWidth / 2; j <= imgWidthBound; j += strideCols) {
+            // within local views
+            for (int m = 0; m < (Int_t)input.GetNrows(); m++) {
+                AFloat value = 0.0;
+                if (method == "max") {
+                    value = -std::numeric_limits<AFloat>::max();
 
-               for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
-                  for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
-                     if (input(m, k * inWidth + l) > value) {
-                        value = input(m, k * inWidth + l);
-                        layer->GetIndexMatrix()[batchIndex](m, currLocalView) = k * inWidth + l;
-                     }
-                  }
-               }
+                    for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
+                        for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
+                            if (input(m, k * inWidth + l) > value) {
+                                value = input(m, k * inWidth + l);
+                                layer->GetIndexMatrix()[batchIndex](m, outCol + outRow * outWidth) = k * inWidth + l;
+                            }
+                        }
+                    }
+                }
+                else if (method == "avg") {
+                    unsigned int counter = 0;
+                    for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
+                        for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
+                            value += input(m, k * inWidth + l);
+                            counter += 1;
+                        }
+                    }
+                    value /= counter;
+                }
+                else {
+                    throw std::invalid_argument("The method argument can be either 'max' or 'avg', not " + method);
+                }
+                layer->GetOutputAt(m)(outRow, outCol) = value;
             }
-            else if (method == "avg") {
-               unsigned int counter = 0;
-               for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
-                  for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
-                     value += input(m, k * inWidth + l);
-                     counter += 1;
-                  }
-               }
-               value /= counter;
-            }
-            else {
-               throw std::invalid_argument("The method argument can be either 'max' or 'avg', not " + method);
-            }
-            output(m, currLocalView) = value;
-         }
-         currLocalView++;
-      }
-   }
+            outCol++;
+        }
+        outRow++;
+    }
 }
 
 //____________________________________________________________________________

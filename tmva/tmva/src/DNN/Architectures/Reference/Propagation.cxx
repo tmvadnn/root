@@ -331,16 +331,17 @@ void TReference<AReal>::Downsample(CNN::TPoolLayer<TReference> *layer, const TMa
     size_t inHeight = layer->GetInputHeight(), inWidth = layer->GetInputWidth();
     size_t fltHeight = layer->GetFrameHeight(), fltWidth = layer->GetFrameWidth();
     size_t strideRows = layer->GetStrideRows(), strideCols = layer->GetStrideCols();
+    size_t outWidth = layer->GetWidth();
     std::string method = layer->GetMethod();
-    TMatrixT<AReal> &output = layer->GetOutputAt(batchIndex);
 
     // image boundaries
     int imgHeightBound = inHeight - (fltHeight - 1) / 2 - 1;
     int imgWidthBound = inWidth - (fltWidth - 1) / 2 - 1;
-    size_t currLocalView = 0;
+    size_t outRow = 0, outCol = 0;
 
     // centers
     for (int i = fltHeight / 2; i <= imgHeightBound; i += strideRows) {
+        outCol = 0;
         for (int j = fltWidth / 2; j <= imgWidthBound; j += strideCols) {
             // within local views
             for (int m = 0; m < (Int_t)input.GetNrows(); m++) {
@@ -352,7 +353,7 @@ void TReference<AReal>::Downsample(CNN::TPoolLayer<TReference> *layer, const TMa
                         for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
                             if (input(m, k * inWidth + l) > value) {
                                 value = input(m, k * inWidth + l);
-                                layer->GetIndexMatrix()[batchIndex](m, currLocalView) = k * inWidth + l;
+                                layer->GetIndexMatrix()[batchIndex](m, outCol + outRow * outWidth) = k * inWidth + l;
                             }
                         }
                     }
@@ -368,12 +369,13 @@ void TReference<AReal>::Downsample(CNN::TPoolLayer<TReference> *layer, const TMa
                     value /= counter;
                 }
                 else {
-                    throw std::invalid_argument( "The method argument can be either 'max' or 'avg', not " + method);
+                    throw std::invalid_argument("The method argument can be either 'max' or 'avg', not " + method);
                 }
-                output(m, currLocalView) = value;
+                layer->GetOutputAt(m)(outRow, outCol) = value;
             }
-            currLocalView++;
+            outCol++;
         }
+        outRow++;
     }
 }
 
