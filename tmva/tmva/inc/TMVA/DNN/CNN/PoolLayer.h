@@ -78,7 +78,7 @@ public:
     /*! Constructor. */
     TPoolLayer(size_t BatchSize, size_t InputDepth, size_t InputHeight, size_t InputWidth, size_t Height,
                   size_t Width, size_t OutputNSlices, size_t OutputNRows, size_t OutputNCols, size_t FrameHeight,
-                  size_t FrameWidth, size_t StrideRows, size_t StrideCols, Scalar_t DropoutProbability, std::string Method = "max");
+                  size_t FrameWidth, size_t StrideRows, size_t StrideCols, Scalar_t DropoutProbability, std::string method = "max");
 
     /*! Copy the max pooling layer provided as a pointer */
     TPoolLayer(TPoolLayer<Architecture_t> *layer);
@@ -115,7 +115,7 @@ public:
     /*! Getters */
     const std::vector<Matrix_t> &GetIndexMatrix() const
     {
-        if(method == "max") {
+        if(fMethod == "max") {
             return indexMatrix;
         }
         throw std::invalid_argument("Average Pooling does not include an IndexMatrix.");
@@ -123,7 +123,7 @@ public:
     }
     std::vector<Matrix_t> &GetIndexMatrix()
     {
-        if (method == "max") {
+        if (fMethod == "max") {
             return indexMatrix;
         }
         throw std::invalid_argument("Average Pooling does not include an IndexMatrix.");
@@ -168,7 +168,7 @@ TPoolLayer<Architecture_t>::TPoolLayer(TPoolLayer<Architecture_t> *layer)
         : VGeneralLayer<Architecture_t>(layer), fFrameHeight(layer->GetFrameHeight()),
           fFrameWidth(layer->GetFrameWidth()), fStrideRows(layer->GetStrideRows()), fStrideCols(layer->GetStrideCols()),
           fNLocalViewPixels(layer->GetNLocalViewPixels()), fNLocalViews(layer->GetNLocalViews()),
-          fDropoutProbability(layer->GetDropoutProbability()), fMethod(layer->method)
+          fDropoutProbability(layer->GetDropoutProbability()), fMethod(layer->GetMethod())
 {
     if(fMethod == "max") {
         for (size_t i = 0; i < layer->GetBatchSize(); i++) {
@@ -183,7 +183,7 @@ TPoolLayer<Architecture_t>::TPoolLayer(const TPoolLayer &layer)
         : VGeneralLayer<Architecture_t>(layer), fFrameHeight(layer.fFrameHeight),
           fFrameWidth(layer.fFrameWidth), fStrideRows(layer.fStrideRows), fStrideCols(layer.fStrideCols),
           fNLocalViewPixels(layer.fNLocalViewPixels), fNLocalViews(layer.fNLocalViews),
-          fDropoutProbability(layer.fDropoutProbability), fMethod(layer.method)
+          fDropoutProbability(layer.fDropoutProbability), fMethod(layer.fMethod)
 {
     if(fMethod == "max") {
         for (size_t i = 0; i < layer.fBatchSize; i++) {
