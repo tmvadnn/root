@@ -91,12 +91,46 @@ auto testRotateWeights(typename Architecture::Matrix_t &A, typename Architecture
    return true;
 }
 
-/** Downsample the matrix A and check whether the downsampled version
- *  is equal to B, and if the winning indices are equal to the matrix ind. */
+/** Downsample the matrix A and check whether the downsampled version is equal to B.
+ *  In order to support floating point equality comparisons, a context dependent epsilon
+ *  can be provided. */
 //______________________________________________________________________________
 template <typename Architecture>
-auto testDownsample(const typename Architecture::Matrix_t &A, const typename Architecture::Matrix_t &ind,
-                    const typename Architecture::Matrix_t &B, CNN::TPoolLayer<Architecture> &layer) -> bool
+auto testDownsampleOutput(const typename Architecture::Matrix_t &A, const typename Architecture::Matrix_t &B,
+                          CNN::TPoolLayer<Architecture> &layer, double epsilon = 0.1) -> bool
+{
+   Architecture::Downsample(&layer, A, 0);
+
+   /* Needed to support double (almost) equality */
+   auto almostEqual = [epsilon](double a, double b)
+   {
+      // Using a magic EPSILON value (makes sense for the existing tests).
+      return fabs(a - b) < epsilon;
+   };
+
+   std::vector<typename Architecture::Matrix_t> ADown = layer.GetOutput();
+
+   size_t depth = ADown.size();
+   size_t nRows = ADown[0].GetNrows();
+   size_t nCols = ADown[0].GetNcols();
+
+   for (size_t d = 0; d < depth; d++) {
+      for (size_t r = 0; r < nRows; r++) {
+         for (size_t c = 0; c < nCols; c++) {
+            if (!almostEqual(ADown[d](r, c), B(d, c + r * nCols))) {
+               return false;
+            }
+         }
+      }
+   }
+
+   return true;
+}
+
+/** Downsample the matrix A and check whether the winning indices are equal to the matrix ind.*/
+template <typename Architecture>
+auto testDownsampleIndex(const typename Architecture::Matrix_t &A, const typename Architecture::Matrix_t &ind,
+                         CNN::TPoolLayer<Architecture> &layer) -> bool
 {
     Architecture::Downsample(&layer, A, 0);
 
@@ -111,9 +145,6 @@ auto testDownsample(const typename Architecture::Matrix_t &A, const typename Arc
     for (size_t d = 0; d < depth; d++) {
         for (size_t r = 0; r < nRows; r++) {
             for (size_t c = 0; c < nCols; c++) {
-                if (ADown[d](r, c) != B(d, c + r * nCols)) {
-                    return false;
-                }
                 if (AInd(d, c + r * nCols) != ind(d, c + r * nCols)) {
                     return false;
                 }

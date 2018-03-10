@@ -112,9 +112,10 @@ void test1()
       }
    }
 
-   bool status = testDownsample<TCpu<double>>(A, idx, B, layer);
+   bool outputStatus = testDownsampleOutput<TCpu<double>>(A, B, layer);
+   bool indexStatus = testDownsampleIndex<TCpu<double>>(A, idx, layer);
 
-   if (status)
+   if(outputStatus && indexStatus)
       std::cout << "Test passed!" << std::endl;
    else
       std::cout << "Test not passed!" << std::endl;
@@ -174,9 +175,79 @@ void test2()
       }
    }
 
-   bool status = testDownsample<TCpu<double>>(A, idx, B, layer);
+   bool outputStatus = testDownsampleOutput<TCpu<double>>(A, B, layer);
+   bool indexStatus = testDownsampleIndex<TCpu<double>>(A, idx, layer);
 
-   if (status)
+   if(outputStatus && indexStatus)
+      std::cout << "Test passed!" << std::endl;
+   else
+      std::cout << "Test not passed!" << std::endl;
+}
+
+void testAveragePooling1()
+{
+
+   double input[][36] =
+      {
+         {200,  79,  69,  58,  98, 168,
+           49, 230,  21, 141, 218,  38,
+           72, 224,  14,  65, 147, 105,
+           38,  27, 111, 160, 200,  48,
+          109, 104, 153, 149, 233,  11,
+           16,  91, 236, 183, 166, 155}
+      };
+
+
+   double output[][10] =
+      {
+         {108, 218,
+          230, 218,
+          224, 200,
+          153, 233,
+          236, 233}
+      };
+
+   size_t depth = 1;
+   size_t inputHeight = 6;
+   size_t inputWidth = 6;
+   size_t frameHeight = 2;
+   size_t frameWidth = 3;
+   size_t strideRows = 1;
+   size_t strideCols = 3;
+
+
+   Matrix_t A(depth, inputHeight * inputWidth);
+
+   for(size_t i = 0; i < (size_t) A.GetNrows(); i++){
+      for(size_t j = 0; j < (size_t) A.GetNcols(); j++){
+         A(i, j) = input[i][j];
+      }
+   }
+
+   size_t height = calculateDimension(inputHeight, frameHeight, 0, strideRows);
+
+   size_t width = calculateDimension(inputWidth, frameWidth, 0, strideCols);
+
+
+   CNN::TPoolLayer<TCpu<double>> layer = CNN::TPoolLayer<TCpu<double>>(1, depth, inputHeight,
+         inputWidth, height, width,
+         depth, height, width,
+         frameHeight, frameWidth,
+         strideRows, strideCols,
+         1.0, "avg");
+
+
+   Matrix_t B(depth, height * width);
+
+   for(size_t i = 0; i < (size_t)B.GetNrows(); i++){
+      for(size_t j = 0; j < (size_t)B.GetNcols(); j++){
+         B(i, j) = output[i][j];
+      }
+   }
+
+   bool status = testDownsampleOutput<TCpu<double>>(A, B, layer);
+
+   if(status)
       std::cout << "Test passed!" << std::endl;
    else
       std::cout << "Test not passed!" << std::endl;
