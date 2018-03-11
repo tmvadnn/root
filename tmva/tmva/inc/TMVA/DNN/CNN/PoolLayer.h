@@ -4,15 +4,14 @@
 /**********************************************************************************
  * Project: TMVA - a Root-integrated toolkit for multivariate data analysis       *
  * Package: TMVA                                                                  *
- * Class  : TPoolLayer                                                         *
+ * Class  : TAvgPoolLayer                                                         *
  * Web    : http://tmva.sourceforge.net                                           *
  *                                                                                *
  * Description:                                                                   *
- *      Pooling Deep Neural Network Layer                                         *
+ *      Pooling Deep Neural Network Layer                                        *
  *                                                                                *
  * Authors (alphabetical):                                                        *
- *      Vladimir Ilievski      <ilievski.vladimir@live.com>  - CERN, Switzerland  *
- *      Emmanouil Stergiadis   <em.stergiadis@gmail.com>  - JADS, Netherlands     *
+ *      Emmanouil Stergiadis      <em.stergiadis@gmail.com>  - JADS, Netherlands  *
  *                                                                                *
  * Copyright (c) 2005-2015:                                                       *
  *      CERN, Switzerland                                                         *
@@ -39,7 +38,7 @@ namespace TMVA {
 namespace DNN {
 namespace CNN {
 
-/** \class TPoolLayer
+/** \class TAvgPoolLayer
 
 Generic Pooling Layer class.
 
@@ -77,7 +76,8 @@ private:
 
 public:
    /*! Constructor. */
-   TPoolLayer(size_t BatchSize, size_t InputDepth, size_t InputHeight, size_t InputWidth, size_t FrameHeight,
+   TPoolLayer(size_t BatchSize, size_t InputDepth, size_t InputHeight, size_t InputWidth, size_t Height,
+              size_t Width, size_t OutputNSlices, size_t OutputNRows, size_t OutputNCols, size_t FrameHeight,
               size_t FrameWidth, size_t StrideRows, size_t StrideCols, Scalar_t DropoutProbability,
               std::string method = "max");
 
@@ -120,6 +120,7 @@ public:
          return indexMatrix;
       }
       throw std::invalid_argument("Average Pooling does not include an IndexMatrix.");
+
    }
 
    std::vector<Matrix_t> &GetIndexMatrix()
@@ -131,22 +132,32 @@ public:
    }
 
    size_t GetFrameHeight() const { return fFrameHeight; }
+
    size_t GetFrameWidth() const { return fFrameWidth; }
+
    size_t GetStrideRows() const { return fStrideRows; }
+
    size_t GetStrideCols() const { return fStrideCols; }
+
    size_t GetNLocalViewPixels() const { return fNLocalViewPixels; }
+
    size_t GetNLocalViews() const { return fNLocalViews; }
+
    Scalar_t GetDropoutProbability() const { return fDropoutProbability; }
+
    std::string GetMethod() const { return fMethod; }
 };
 
 //______________________________________________________________________________
 template<typename Architecture_t>
 TPoolLayer<Architecture_t>::TPoolLayer(size_t batchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
-                                       size_t frameHeight, size_t frameWidth, size_t strideRows, size_t strideCols,
-                                       Scalar_t dropoutProbability, std::string method)
+                                       size_t height, size_t width, size_t outputNSlices, size_t outputNRows,
+                                       size_t outputNCols, size_t frameHeight, size_t frameWidth,
+                                       size_t strideRows, size_t strideCols, Scalar_t dropoutProbability,
+                                       std::string method)
       : VGeneralLayer<Architecture_t>(batchSize, inputDepth, inputHeight, inputWidth, inputDepth, height, width, 0, 0,
-                                      0, 0, 0, 0, outputNSlices, outputNRows, outputNCols, EInitialization::kZero),
+                                      0,
+                                      0, 0, 0, outputNSlices, outputNRows, outputNCols, EInitialization::kZero),
         fFrameHeight(frameHeight), fFrameWidth(frameWidth), fStrideRows(strideRows),
         fStrideCols(strideCols), fNLocalViewPixels(inputDepth * frameHeight * frameWidth), fNLocalViews(height * width),
         fDropoutProbability(dropoutProbability), fMethod(method)

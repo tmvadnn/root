@@ -127,7 +127,7 @@ void testMaxPooling1()
 
    CNN::TPoolLayer<TReference<double>> layer = CNN::TPoolLayer<TReference<double>>(1, imgDepthTest1, imgHeightTest1,
                                                                                    imgWidthTest1, height, width,
-                                                                                   imgDepthTest1, height, width,
+                                                                                   1, imgDepthTest1, height * width,
                                                                                    fltHeightTest1, fltWidthTest1,
                                                                                    strideRowsTest1, strideColsTest1,
                                                                                    1.0, "max");
@@ -218,7 +218,7 @@ void testMaxPooling2()
 
    CNN::TPoolLayer<TReference<double>> layer = CNN::TPoolLayer<TReference<double>>(1, imgDepthTest2, imgHeightTest2,
                                                                                    imgWidthTest2, height, width,
-                                                                                   imgDepthTest2, height, width,
+                                                                                   1, imgDepthTest2, height * width,
                                                                                    fltHeightTest2, fltWidthTest2,
                                                                                    strideRowsTest2, strideColsTest2,
                                                                                    1.0, "max");
@@ -289,7 +289,7 @@ void testAveragePooling1()
 
     CNN::TPoolLayer<TReference<double>> layer = CNN::TPoolLayer<TReference<double>>(1, depth, inputHeight,
                                                                                     inputWidth, height, width,
-                                                                                    depth, height, width,
+                                                                                    1, depth, height * width,
                                                                                     frameHeight, frameWidth,
                                                                                     strideRows, strideCols,
                                                                                     1.0, "avg");
@@ -311,6 +311,74 @@ void testAveragePooling1()
         std::cout << "Test not passed!" << std::endl;
 }
 
+//void testPoolingBackward()
+//{
+//
+//   /* Activations of the previous layer. These will be computed by the backward pass. */
+//   double previous[][36] =
+//      {
+//         {200,  79,  69,  58,  98, 168,
+//           49, 230,  21, 141, 218,  38,
+//           72, 224,  14,  65, 147, 105,
+//           38,  27, 111, 160, 200,  48,
+//          109, 104, 153, 149, 233,  11,
+//           16,  91, 236, 183, 166, 155}
+//      };
+//
+//   /* Activation gradients, coming from the next layer. These will be back-propagated. */
+//   double next[][10] =
+//      {
+//         {108.000, 120.167,
+//          101.667, 119.000,
+//           81.000, 120.833,
+//           90.333, 133.500,
+//          118.167, 149.500}
+//      };
+//
+//   size_t depth = 1;
+//   size_t outHeight = 6;
+//   size_t outWidth = 6;
+//   size_t frameHeight = 2;
+//   size_t frameWidth = 3;
+//   size_t strideRows = 1;
+//   size_t strideCols = 3;
+//
+//
+//   Matrix_t A(depth, outHeight * outWidth);
+//
+//   for(size_t i = 0; i < (size_t) A.GetNrows(); i++){
+//      for(size_t j = 0; j < (size_t) A.GetNcols(); j++){
+//         A(i, j) = previous[i][j];
+//      }
+//   }
+//
+//   size_t height = calculateDimension(inputHeight, frameHeight, 0, strideRows);
+//
+//   size_t width = calculateDimension(inputWidth, frameWidth, 0, strideCols);
+//
+//
+//   CNN::TPoolLayer<TReference<double>> layer = CNN::TPoolLayer<TReference<double>>(1, depth, inputHeight, inputWidth,
+//                                                                                   height, width, depth, height, width,
+//                                                                                   frameHeight, frameWidth, strideRows,
+//                                                                                   strideCols, 1.0, "avg");
+//
+//
+//   /* Fill the activation gradients */
+//   for(size_t d = 0; i < depth; i++) {
+//      for(size_t r = 0; r < height; r++) {
+//         for(size_t c = 0; c < width; c++) {
+//            layer.getActivationsAt(d)(r, c) = next[d][c + width * r];
+//         }
+//      }
+//   }
+//
+//   bool status = testPoolingBackward<TReference<double>>(A, layer);
+//
+//   if(status)
+//      std::cout << "Test passed!" << std::endl;
+//   else
+//      std::cout << "Test not passed!" << std::endl;
+//}
 
 
 int main(){

@@ -559,7 +559,7 @@ void TCpu<AFloat>::Downsample(CNN::TPoolLayer<TCpu> *layer, const TCpuMatrix<AFl
                 else {
                     throw std::invalid_argument("The method argument can be either 'max' or 'avg', not " + method);
                 }
-                layer->GetOutputAt(m)(outRow, outCol) = value;
+                layer->GetOutputAt(batchIndex)(m, outCol + outRow * outWidth) = value;
             }
             outCol++;
         }
@@ -601,7 +601,7 @@ void TCpu<AFloat>::PoolLayerBackward(std::vector<TCpuMatrix<AFloat>> &activation
                }
                else {
                   size_t winningIdx = layer->GetIndexMatrix()[b](d, currLocalView);
-                  activationGradientsBackward[i](j, winningIdx) += grad;
+                  activationGradientsBackward[b](d, winningIdx) += grad;
                }
                currLocalView++;
             }

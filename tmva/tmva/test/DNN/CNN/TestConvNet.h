@@ -108,18 +108,15 @@ auto testDownsampleOutput(const typename Architecture::Matrix_t &A, const typena
       return fabs(a - b) < epsilon;
    };
 
-   std::vector<typename Architecture::Matrix_t> ADown = layer.GetOutput();
+   typename Architecture::Matrix_t ADown = layer.GetOutputAt(0);
 
-   size_t depth = ADown.size();
-   size_t nRows = ADown[0].GetNrows();
-   size_t nCols = ADown[0].GetNcols();
+   size_t depth = ADown.GetNrows();
+   size_t nLocalViews = ADown.GetNcols();
 
    for (size_t d = 0; d < depth; d++) {
-      for (size_t r = 0; r < nRows; r++) {
-         for (size_t c = 0; c < nCols; c++) {
-            if (!almostEqual(ADown[d](r, c), B(d, c + r * nCols))) {
-               return false;
-            }
+      for (size_t i = 0; i < nLocalViews; i++) {
+         if (!almostEqual(ADown(d, i), B(d, i))) {
+            return false;
          }
       }
    }
@@ -128,32 +125,66 @@ auto testDownsampleOutput(const typename Architecture::Matrix_t &A, const typena
 }
 
 /** Downsample the matrix A and check whether the winning indices are equal to the matrix ind.*/
-template <typename Architecture>
+template<typename Architecture>
 auto testDownsampleIndex(const typename Architecture::Matrix_t &A, const typename Architecture::Matrix_t &ind,
-                         CNN::TPoolLayer<Architecture> &layer) -> bool
+                         CNN::TPoolLayer <Architecture> &layer) -> bool
 {
-    Architecture::Downsample(&layer, A, 0);
+   Architecture::Downsample(&layer, A, 0);
 
-    std::vector<typename Architecture::Matrix_t> ADown = layer.GetOutput();
 
-    size_t depth = ADown.size();
-    size_t nRows = ADown[0].GetNrows();
-    size_t nCols = ADown[0].GetNcols();
+   typename Architecture::Matrix_t AInd = layer.GetIndexMatrix()[0];
+   size_t depth = AInd.GetNrows();
+   size_t nLocalViews = AInd.GetNcols();
 
-    typename Architecture::Matrix_t AInd = layer.GetIndexMatrix()[0];
+   for (size_t d = 0; d < depth; d++) {
+      for (size_t i = 0; i < nLocalViews; i++) {
+         if (AInd(d, i) != ind(d, i)) {
+            return false;
+         }
+      }
+   }
 
-    for (size_t d = 0; d < depth; d++) {
-        for (size_t r = 0; r < nRows; r++) {
-            for (size_t c = 0; c < nCols; c++) {
-                if (AInd(d, c + r * nCols) != ind(d, c + r * nCols)) {
-                    return false;
-                }
-            }
-        }
-    }
-
-    return true;
+   return true;
 }
+
+/** Back propagate the activation gradients through the pooling layer and check whether the
+ * computed gradients are equal to the matrix A. */
+//______________________________________________________________________________
+//template <typename Architecture>
+//auto testPoolingBackward(const typename Architecture::Matrix_t &A, CNN::TPoolLayer<Architecture> &layer,
+//                          double epsilon = 0.1) -> bool
+//{
+//   std::vector<typename Architecture::Matrix_t> &Previous();
+//   for(size_t b = 0; b < layer.GetBatchSize(); b++) {
+//      Previous.emplace_back(layer.GetDepth(), layer.GetInputWidth() * layer.GetInputHeight());
+//   }
+//
+//   Architecture::PoolLayerBackward(Previous, &layer);
+//
+//   /* Needed to support double (almost) equality */
+//   auto almostEqual = [epsilon](double a, double b)
+//   {
+//      // Using a magic EPSILON value (makes sense for the existing tests).
+//      return fabs(a - b) < epsilon;
+//   };
+//
+//
+//   size_t depth = Previous[0].GetNrows();
+//   size_t nLocalViews = Previous[0].GetNcols();
+//
+//   for (size_t b = 0; b < layer.GetBatchSize(); b++) {
+//      for (size_t d = 0; d < depth; d++) {
+//         for (size_t i = 0; i < nLocalViews; i++) {
+//            if (!almostEqual(Previous[b](d, i), A(d, i))) {
+//               return false;
+//            }
+//         }
+//      }
+//   }
+//
+//
+//   return true;
+//}
 
 /** Flatten the 3D tensor A using the Flatten function and compare it to
  *  the result in the flat matrix B. */
