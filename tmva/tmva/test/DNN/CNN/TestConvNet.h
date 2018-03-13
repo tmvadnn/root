@@ -91,40 +91,88 @@ auto testRotateWeights(typename Architecture::Matrix_t &A, typename Architecture
    return true;
 }
 
-/** Downsample the matrix A and check whether the downsampled version
- *  is equal to B, and if the winning indices are equal to the matrix ind. */
+/** Downsample the matrix A and check whether the downsampled version is equal to B.
+ *  In order to support floating point equality comparisons, a context dependent epsilon
+ *  can be provided. */
 //______________________________________________________________________________
 template <typename Architecture>
-auto testDownsample(const typename Architecture::Matrix_t &A, const typename Architecture::Matrix_t &ind,
-                    const typename Architecture::Matrix_t &B, size_t imgHeight, size_t imgWidth, size_t fltHeight,
-                    size_t fltWidth, size_t strideRows, size_t strideCols) -> bool
+auto testDownsampleOutput(const typename Architecture::Matrix_t &A, const typename Architecture::Matrix_t &B,
+                          CNN::TPoolLayer<Architecture> &layer, double epsilon = 0.1) -> bool
 {
+   Architecture::Downsample(&layer, A, 0);
 
-   size_t m1, n1;
-   m1 = B.GetNrows();
-   n1 = B.GetNcols();
+   /* Needed to support double (almost) equality */
+   auto almostEqual = [epsilon](double a, double b)
+   {
+      // Using a magic EPSILON value (makes sense for the existing tests).
+      return fabs(a - b) < epsilon;
+   };
 
-   typename Architecture::Matrix_t ADown(m1, n1);
+   typename Architecture::Matrix_t ADown = layer.GetOutputAt(0);
 
-   size_t m2, n2;
-   m2 = ind.GetNrows();
-   n2 = ind.GetNcols();
+   size_t depth = ADown.GetNrows();
+   size_t nLocalViews = ADown.GetNcols();
 
-   typename Architecture::Matrix_t AInd(m2, n2);
-
-   Architecture::Downsample(ADown, AInd, A, imgHeight, imgWidth, fltHeight, fltWidth, strideRows, strideCols);
-
-   for (size_t i = 0; i < m1; i++) {
-      for (size_t j = 0; j < n1; j++) {
-         if (ADown(i, j) != B(i, j)) {
+   for (size_t d = 0; d < depth; d++) {
+      for (size_t i = 0; i < nLocalViews; i++) {
+         if (!almostEqual(ADown(d, i), B(d, i))) {
             return false;
          }
       }
    }
 
-   for (size_t i = 0; i < m2; i++) {
-      for (size_t j = 0; j < n2; j++) {
-         if (AInd(i, j) != ind(i, j)) {
+   return true;
+}
+
+/** Downsample the matrix A and check whether the winning indices are equal to the matrix ind.*/
+template<typename Architecture>
+auto testDownsampleIndex(const typename Architecture::Matrix_t &A, const typename Architecture::Matrix_t &ind,
+                         CNN::TPoolLayer <Architecture> &layer) -> bool
+{
+   Architecture::Downsample(&layer, A, 0);
+
+
+   typename Architecture::Matrix_t AInd = layer.GetIndexMatrix()[0];
+   size_t depth = AInd.GetNrows();
+   size_t nLocalViews = AInd.GetNcols();
+
+   for (size_t d = 0; d < depth; d++) {
+      for (size_t i = 0; i < nLocalViews; i++) {
+         if (AInd(d, i) != ind(d, i)) {
+            return false;
+         }
+      }
+   }
+
+   return true;
+}
+
+/** Back propagate the activation gradients through the pooling layer and check whether the
+ * computed gradients are equal to the matrix A. */
+//______________________________________________________________________________
+template <typename Architecture>
+auto testPoolingBackward(const typename Architecture::Matrix_t &A, CNN::TPoolLayer<Architecture> &layer,
+                         double epsilon = 0.1) -> bool
+{
+   typename Architecture::Matrix_t Previous(layer.GetDepth(), layer.GetInputWidth() * layer.GetInputHeight());
+
+   Architecture::PoolLayerBackward(&layer, Previous, 0);
+
+   /* Needed to support double (almost) equality */
+   auto almostEqual = [epsilon](double a, double b)
+   {
+      // Using a magic EPSILON value (makes sense for the existing tests).
+      return fabs(a - b) < epsilon;
+   };
+
+
+   size_t depth = Previous.GetNrows();
+   size_t nLocalViews = Previous.GetNcols();
+
+
+   for (size_t d = 0; d < depth; d++) {
+      for (size_t i = 0; i < nLocalViews; i++) {
+         if (!almostEqual(Previous(d, i), A(d, i))) {
             return false;
          }
       }

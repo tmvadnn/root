@@ -67,7 +67,7 @@ size_t calculateDimension(size_t imgDim,
  *  zero-padding height = 0, zero-padding width = 0,
  *************************************************************************/
 
-void test1()
+void testMaxPooling1()
 {
     
    double imgTest1[][20] =
@@ -110,7 +110,6 @@ void test1()
    size_t strideRowsTest1 = 2;
    size_t strideColsTest1 = 1;
     
-    
    Matrix_t A(imgDepthTest1, imgHeightTest1 * imgWidthTest1);
     
    for(size_t i = 0; i < (size_t) A.GetNrows(); i++){
@@ -126,7 +125,13 @@ void test1()
    size_t width = calculateDimension(imgWidthTest1, fltWidthTest1,
                                      0, strideColsTest1);
 
-    
+   CNN::TPoolLayer<TReference<double>> layer = CNN::TPoolLayer<TReference<double>>(1, imgDepthTest1, imgHeightTest1,
+                                                                                   imgWidthTest1, height, width,
+                                                                                   1, imgDepthTest1, height * width,
+                                                                                   fltHeightTest1, fltWidthTest1,
+                                                                                   strideRowsTest1, strideColsTest1,
+                                                                                   1.0, "max");
+
    Matrix_t idx(imgDepthTest1,  height * width);
    Matrix_t B(imgDepthTest1, height * width);
     
@@ -136,15 +141,12 @@ void test1()
          B(i, j) = answerTest1[i][j];
       }
    }
-    
-    
-    
-   bool status = testDownsample<TReference<double>>(A, idx, B,
-                                                    imgHeightTest1, imgWidthTest1,
-                                                    fltHeightTest1, fltWidthTest1,
-                                                    strideRowsTest1, strideColsTest1);
 
-   if(status)
+
+   bool outputStatus = testDownsampleOutput<TReference<double>>(A, B, layer);
+   bool indexStatus = testDownsampleIndex<TReference<double>>(A, idx, layer);
+
+   if(outputStatus && indexStatus)
       std::cout << "Test passed!" << std::endl;
    else
       std::cout << "Test not passed!" << std::endl;
@@ -158,7 +160,7 @@ void test1()
  *  zero-padding height = 0, zero-padding width = 0,
  *************************************************************************/
 
-void test2()
+void testMaxPooling2()
 {
     
    double imgTest2[][36] =
@@ -198,7 +200,7 @@ void test2()
    size_t strideRowsTest2 = 1;
    size_t strideColsTest2 = 3;
     
-    
+
    Matrix_t A(imgDepthTest2, imgHeightTest2 * imgWidthTest2);
     
    for(size_t i = 0; i < (size_t) A.GetNrows(); i++){
@@ -207,31 +209,168 @@ void test2()
       }
    }
     
-    
    size_t height = calculateDimension(imgHeightTest2, fltHeightTest2,
                                       0, strideRowsTest2);
     
    size_t width = calculateDimension(imgWidthTest2, fltWidthTest2,
                                      0, strideColsTest2);
-    
-    
+
+
+   CNN::TPoolLayer<TReference<double>> layer = CNN::TPoolLayer<TReference<double>>(1, imgDepthTest2, imgHeightTest2,
+                                                                                   imgWidthTest2, height, width,
+                                                                                   1, imgDepthTest2, height * width,
+                                                                                   fltHeightTest2, fltWidthTest2,
+                                                                                   strideRowsTest2, strideColsTest2,
+                                                                                   1.0, "max");
+
    Matrix_t idx(imgDepthTest2,  height * width);
    Matrix_t B(imgDepthTest2, height * width);
     
-   for(size_t i = 0; i < (size_t) B.GetNrows(); i++){
-      for(size_t j = 0; j < (size_t) B.GetNcols(); j++){
+   for(size_t i = 0; i < (size_t)B.GetNrows(); i++){
+      for(size_t j = 0; j < (size_t)B.GetNcols(); j++){
          idx(i, j) = answerIdxTest2[i][j];
          B(i, j) = answerTest2[i][j];
       }
    }
+
+   bool outputStatus = testDownsampleOutput<TReference<double>>(A, B, layer);
+   bool indexStatus = testDownsampleIndex<TReference<double>>(A, idx, layer);
     
-    
-    
-   bool status = testDownsample<TReference<double>>(A, idx, B,
-                                                    imgHeightTest2, imgWidthTest2,
-                                                    fltHeightTest2, fltWidthTest2,
-                                                    strideRowsTest2, strideColsTest2);
-    
+   if(outputStatus && indexStatus)
+      std::cout << "Test passed!" << std::endl;
+   else
+      std::cout << "Test not passed!" << std::endl;
+}
+
+void testAveragePooling1()
+{
+
+    double input[][36] =
+        {
+          {200,  79,  69,  58,  98, 168,
+            49, 230,  21, 141, 218,  38,
+            72, 224,  14,  65, 147, 105,
+            38,  27, 111, 160, 200,  48,
+           109, 104, 153, 149, 233,  11,
+            16,  91, 236, 183, 166, 155}
+        };
+
+
+    double output[][10] =
+        {
+           {108.000, 120.167,
+            101.667, 119.000,
+             81.000, 120.833,
+             90.333, 133.500,
+            118.167, 149.500}
+        };
+
+    size_t depth = 1;
+    size_t inputHeight = 6;
+    size_t inputWidth = 6;
+    size_t frameHeight = 2;
+    size_t frameWidth = 3;
+    size_t strideRows = 1;
+    size_t strideCols = 3;
+
+
+    Matrix_t A(depth, inputHeight * inputWidth);
+
+    for(size_t i = 0; i < (size_t) A.GetNrows(); i++){
+        for(size_t j = 0; j < (size_t) A.GetNcols(); j++){
+            A(i, j) = input[i][j];
+        }
+    }
+
+    size_t height = calculateDimension(inputHeight, frameHeight, 0, strideRows);
+
+    size_t width = calculateDimension(inputWidth, frameWidth, 0, strideCols);
+
+
+    CNN::TPoolLayer<TReference<double>> layer = CNN::TPoolLayer<TReference<double>>(1, depth, inputHeight,
+                                                                                    inputWidth, height, width,
+                                                                                    1, depth, height * width,
+                                                                                    frameHeight, frameWidth,
+                                                                                    strideRows, strideCols,
+                                                                                    1.0, "avg");
+
+
+    Matrix_t B(depth, height * width);
+
+    for(size_t i = 0; i < (size_t)B.GetNrows(); i++){
+        for(size_t j = 0; j < (size_t)B.GetNcols(); j++){
+            B(i, j) = output[i][j];
+        }
+    }
+
+    bool status = testDownsampleOutput<TReference<double>>(A, B, layer);
+
+    if(status)
+        std::cout << "Test passed!" << std::endl;
+    else
+        std::cout << "Test not passed!" << std::endl;
+}
+
+void testPoolingBackward()
+{
+
+   /* Activations of the previous layer. These will be computed by the backward pass. */
+   double expected[][36] =
+      {
+         {2.5,  2.5,  2.5,  -1.1,  -1.1, -1.1,
+          3.5,  3.5,  3.5,  -0.6,  -0.6, -0.6,
+          3.0,  3.0,  3.0,  -0.5,  -0.5, -0.5,
+          5.5,  5.5,  5.5,  -2.5,  -2.5, -2.5,
+          3.0,  3.0,  3.0,   2.0,   2.0,  2.0,
+         -0.5, -0.5, -0.5,   3.5,   3.5,  3.5}
+      };
+
+   /* Activation gradients, coming from the next layer. These will be back-propagated. */
+   double next[][10] =
+      {
+         { 15.0, -6.6,
+            6.0,  3.0,
+           12.0, -6.0,
+           21.0, -9.0,
+           -3.0, 21.0}
+      };
+
+   size_t depth = 1;
+   size_t inHeight = 6;
+   size_t inWidth = 6;
+   size_t frameHeight = 2;
+   size_t frameWidth = 3;
+   size_t strideRows = 1;
+   size_t strideCols = 3;
+
+   Matrix_t A(depth, inHeight * inWidth);
+
+   for(size_t i = 0; i < (size_t) A.GetNrows(); i++){
+      for(size_t j = 0; j < (size_t) A.GetNcols(); j++){
+         A(i, j) = expected[i][j];
+      }
+   }
+
+   size_t height = calculateDimension(inHeight, frameHeight, 0, strideRows);
+
+   size_t width = calculateDimension(inWidth, frameWidth, 0, strideCols);
+
+   CNN::TPoolLayer<TReference<double>> layer = CNN::TPoolLayer<TReference<double>>(1, depth, inHeight, inWidth,
+         height, width, 1, depth,
+         height * width, frameHeight,
+         frameWidth, strideRows,
+         strideCols, 1.0, "avg");
+
+
+   /* Fill the activation gradients */
+   for(size_t d = 0; d < depth; d++) {
+      for(size_t i = 0; i < height * width; i++) {
+         layer.GetActivationGradients()[0](d, i) = next[d][i];
+      }
+   }
+
+   bool status = testPoolingBackward<TReference<double>>(A, layer);
+
    if(status)
       std::cout << "Test passed!" << std::endl;
    else
@@ -242,9 +381,15 @@ void test2()
 int main(){
    std::cout << "Testing Downsample function:" << std::endl;
     
-   std::cout << "Test 1: " << std::endl;
-   test1();
+   std::cout << "Test Max 1: " << std::endl;
+   testMaxPooling1();
     
-   std::cout << "Test 2: " << std::endl;
-   test2();
+   std::cout << "Test Max 2: " << std::endl;
+   testMaxPooling2();
+
+   std::cout << "Test Average 1: " << std::endl;
+   testAveragePooling1();
+
+   std::cout << "Test Backward Pooling (average): " << std::endl;
+   testPoolingBackward();
 }

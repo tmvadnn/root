@@ -324,58 +324,99 @@ void TReference<AReal>::CalculateConvBiasGradients(TMatrixT<AReal> &bias_gradien
 }
 
 //______________________________________________________________________________
-template <typename AReal>
-void TReference<AReal>::Downsample(TMatrixT<AReal> &A, TMatrixT<AReal> &B, const TMatrixT<AReal> &C, size_t imgHeight,
-                                   size_t imgWidth, size_t fltHeight, size_t fltWidth, size_t strideRows,
-                                   size_t strideCols)
+template<typename AReal>
+void
+TReference<AReal>::Downsample(CNN::TPoolLayer <TReference> *layer, const TMatrixT <AReal> &input, size_t batchIndex)
 {
-   // image boudaries
-   int imgHeightBound = imgHeight - (fltHeight - 1) / 2 - 1;
-   int imgWidthBound = imgWidth - (fltWidth - 1) / 2 - 1;
-   size_t currLocalView = 0;
+   // unpack frequently used layer internals
+   size_t inHeight = layer->GetInputHeight(), inWidth = layer->GetInputWidth();
+   size_t fltHeight = layer->GetFrameHeight(), fltWidth = layer->GetFrameWidth();
+   size_t strideRows = layer->GetStrideRows(), strideCols = layer->GetStrideCols();
+   size_t outWidth = layer->GetWidth();
+   std::string method = layer->GetMethod();
+
+   // image boundaries
+   int imgHeightBound = inHeight - (fltHeight - 1) / 2 - 1;
+   int imgWidthBound = inWidth - (fltWidth - 1) / 2 - 1;
+   size_t outRow = 0, outCol = 0;
 
    // centers
    for (int i = fltHeight / 2; i <= imgHeightBound; i += strideRows) {
+      outCol = 0;
       for (int j = fltWidth / 2; j <= imgWidthBound; j += strideCols) {
          // within local views
-         for (int m = 0; m < C.GetNrows(); m++) {
-            AReal value = -std::numeric_limits<AReal>::max();
+         for (int m = 0; m < (Int_t) input.GetNrows(); m++) {
+            AReal value = 0.0;
+            if (method == "max") {
+               value = -std::numeric_limits<AReal>::max();
 
-            for (int k = i - Int_t(fltHeight) / 2; k <= i + (Int_t(fltHeight) - 1) / 2; k++) {
-               for (int l = j - Int_t(fltWidth) / 2; l <= j + (Int_t(fltWidth) - 1) / 2; l++) {
-                  if (C(m, k * imgWidth + l) > value) {
-                     value = C(m, k * imgWidth + l);
-                     B(m, currLocalView) = k * imgWidth + l;
+               for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
+                  for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
+                     if (input(m, k * inWidth + l) > value) {
+                        value = input(m, k * inWidth + l);
+                        layer->GetIndexMatrix()[batchIndex](m, outCol + outRow * outWidth) = k * inWidth + l;
+                     }
                   }
                }
             }
-            A(m, currLocalView) = value;
+            else if (method == "avg") {
+               unsigned int counter = 0;
+               for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
+                  for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
+                     value += input(m, k * inWidth + l);
+                     counter += 1;
+                  }
+               }
+               value /= counter;
+            }
+            else {
+               throw std::invalid_argument("The method argument can be either 'max' or 'avg', not " + method);
+            }
+            layer->GetOutputAt(batchIndex)(m, outCol + outRow * outWidth) = value;
          }
-         currLocalView++;
+         outCol++;
       }
+      outRow++;
    }
 }
 
 //______________________________________________________________________________
-template <typename AReal>
-void TReference<AReal>::MaxPoolLayerBackward(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
-                                             const std::vector<TMatrixT<AReal>> &activationGradients,
-                                             const std::vector<TMatrixT<AReal>> &indexMatrix, size_t batchSize,
-                                             size_t depth, size_t nLocalViews)
+template <typename AFloat>
+void TReference<AFloat>::PoolLayerBackward(CNN::TPoolLayer<TReference> const * const layer,
+                                           TMatrixT<AFloat> &gradients_backward, size_t batchIndex)
 {
-   for (size_t i = 0; i < batchSize; i++) {
-      for (size_t j = 0; j < depth; j++) {
+   size_t fHeight = layer->GetFrameHeight(), fWidth = layer->GetFrameWidth();
+   size_t inHeight = layer->GetInputHeight(), inWidth = layer->GetInputWidth();
+   size_t strideRows = layer->GetStrideRows(), strideCols = layer->GetStrideCols();
+   int inHeightBound = inHeight - (fHeight - 1) / 2 - 1;
+   int inWidthBound = inWidth - (fWidth - 1) / 2 - 1;
 
-         // initialize to zeros
-         for (size_t t = 0; t < (size_t)activationGradientsBackward[i].GetNcols(); t++) {
-            activationGradientsBackward[i][j][t] = 0;
-         }
+   size_t currLocalView = 0;
 
-         // set values
-         for (size_t k = 0; k < nLocalViews; k++) {
-            AReal grad = activationGradients[i][j][k];
-            size_t winningIdx = indexMatrix[i][j][k];
-            activationGradientsBackward[i][j][winningIdx] = grad;
+
+   for (size_t d = 0; d < layer->GetDepth(); d++) {
+
+      // initialize to zeros
+      for (size_t t = 0; t < (size_t)gradients_backward.GetNcols(); t++) {
+         gradients_backward(d, t) = 0;
+      }
+
+      // centers
+      for (int i = fHeight / 2; i <= inHeightBound; i += strideRows) {
+         for (int j = fWidth / 2; j <= inWidthBound; j += strideCols) {
+            AFloat grad =  layer->GetActivationGradients()[batchIndex](d, currLocalView);
+            if (layer->GetMethod() == "avg") {
+               for (int k = i - fHeight / 2; k <= Int_t(i + (fHeight - 1) / 2); k++) {
+                  for (int l = j - fWidth / 2; l <= Int_t(j + (fWidth - 1) / 2); l++) {
+                     gradients_backward(d, k * inWidth + l) += grad / (fHeight * fWidth);
+                  }
+               }
+            }
+            else {
+               size_t winningIdx = layer->GetIndexMatrix()[batchIndex](d, currLocalView);
+               gradients_backward(d, winningIdx) += grad;
+            }
+            currLocalView++;
          }
       }
    }

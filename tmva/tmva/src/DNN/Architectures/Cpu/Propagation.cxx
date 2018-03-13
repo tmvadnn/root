@@ -12,7 +12,7 @@
 //////////////////////////////////////////////////////////////////////
 // Implementation of the functions required for the forward and     //
 // backward propagation of activations through a neural network for //
-// the reference implementation.                                    //
+// the CPU implementation.                                    //
 //////////////////////////////////////////////////////////////////////
 
 #include "TMVA/DNN/Architectures/Cpu.h"
@@ -512,62 +512,102 @@ void TCpu<AFloat>::CalculateConvBiasGradients(TCpuMatrix<AFloat> &biasGradients,
    }
 }
 
-//____________________________________________________________________________
 template <typename AFloat>
-void TCpu<AFloat>::Downsample(TCpuMatrix<AFloat> &A, TCpuMatrix<AFloat> &B, const TCpuMatrix<AFloat> &C,
-                              size_t imgHeight, size_t imgWidth, size_t fltHeight, size_t fltWidth, size_t strideRows,
-                              size_t strideCols)
+void TCpu<AFloat>::Downsample(CNN::TPoolLayer<TCpu> *layer, const TCpuMatrix<AFloat> &input, size_t batchIndex)
 {
-   // image boudaries
-   int imgHeightBound = imgHeight - (fltHeight - 1) / 2 - 1;
-   int imgWidthBound = imgWidth - (fltWidth - 1) / 2 - 1;
-   size_t currLocalView = 0;
+    // unpack frequently used layer internals
+    size_t inHeight = layer->GetInputHeight(), inWidth = layer->GetInputWidth();
+    size_t fltHeight = layer->GetFrameHeight(), fltWidth = layer->GetFrameWidth();
+    size_t strideRows = layer->GetStrideRows(), strideCols = layer->GetStrideCols();
+    size_t outWidth = layer->GetWidth();
+    std::string method = layer->GetMethod();
 
-   // centers
-   for (int i = fltHeight / 2; i <= imgHeightBound; i += strideRows) {
-      for (int j = fltWidth / 2; j <= imgWidthBound; j += strideCols) {
-         // within local views
-         for (int m = 0; m < (Int_t)C.GetNrows(); m++) {
-            AFloat value = -std::numeric_limits<AFloat>::max();
+    // image boundaries
+    int imgHeightBound = inHeight - (fltHeight - 1) / 2 - 1;
+    int imgWidthBound = inWidth - (fltWidth - 1) / 2 - 1;
+    size_t outRow = 0, outCol = 0;
 
-            for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
-               for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
-                  if (C(m, k * imgWidth + l) > value) {
-                     value = C(m, k * imgWidth + l);
-                     B(m, currLocalView) = k * imgWidth + l;
-                  }
-               }
+    // centers
+    for (int i = fltHeight / 2; i <= imgHeightBound; i += strideRows) {
+        outCol = 0;
+        for (int j = fltWidth / 2; j <= imgWidthBound; j += strideCols) {
+            // within local views
+            for (int m = 0; m < (Int_t)input.GetNrows(); m++) {
+                AFloat value = 0.0;
+                if (method == "max") {
+                    value = -std::numeric_limits<AFloat>::max();
+
+                    for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
+                        for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
+                            if (input(m, k * inWidth + l) > value) {
+                                value = input(m, k * inWidth + l);
+                                layer->GetIndexMatrix()[batchIndex](m, outCol + outRow * outWidth) = k * inWidth + l;
+                            }
+                        }
+                    }
+                }
+                else if (method == "avg") {
+                    unsigned int counter = 0;
+                    for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
+                        for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
+                            value += input(m, k * inWidth + l);
+                            counter += 1;
+                        }
+                    }
+                    value /= counter;
+                }
+                else {
+                    throw std::invalid_argument("The method argument can be either 'max' or 'avg', not " + method);
+                }
+                layer->GetOutputAt(batchIndex)(m, outCol + outRow * outWidth) = value;
             }
-            A(m, currLocalView) = value;
-         }
-         currLocalView++;
-      }
-   }
+            outCol++;
+        }
+        outRow++;
+    }
 }
 
 //____________________________________________________________________________
 template <typename AFloat>
-void TCpu<AFloat>::MaxPoolLayerBackward(std::vector<TCpuMatrix<AFloat>> &activationGradientsBackward,
-                                        const std::vector<TCpuMatrix<AFloat>> &activationGradients,
-                                        const std::vector<TCpuMatrix<AFloat>> &indexMatrix, size_t batchSize,
-                                        size_t depth, size_t nLocalViews)
+void TCpu<AFloat>::PoolLayerBackward(CNN::TPoolLayer<TCpu> const * const layer, TCpuMatrix<AFloat> &gradients_backward,
+                                     size_t batchIndex)
 {
-   for (size_t i = 0; i < batchSize; i++) {
-      for (size_t j = 0; j < depth; j++) {
+   size_t fHeight = layer->GetFrameHeight(), fWidth = layer->GetFrameWidth();
+   size_t inHeight = layer->GetInputHeight(), inWidth = layer->GetInputWidth();
+   size_t strideRows = layer->GetStrideRows(), strideCols = layer->GetStrideCols();
+   int inHeightBound = inHeight - (fHeight - 1) / 2 - 1;
+   int inWidthBound = inWidth - (fWidth - 1) / 2 - 1;
 
-         // initialize to zeros
-         for (size_t t = 0; t < (size_t)activationGradientsBackward[i].GetNcols(); t++) {
-            activationGradientsBackward[i](j, t) = 0;
-         }
+   size_t currLocalView = 0;
 
-         // set values
-         for (size_t k = 0; k < nLocalViews; k++) {
-            AFloat grad = activationGradients[i](j, k);
-            size_t winningIdx = indexMatrix[i](j, k);
-            activationGradientsBackward[i](j, winningIdx) += grad;
+
+   for (size_t d = 0; d < layer->GetDepth(); d++) {
+
+      // initialize to zeros
+      for (size_t t = 0; t < (size_t)gradients_backward.GetNcols(); t++) {
+         gradients_backward(d, t) = 0;
+      }
+
+      // centers
+      for (int i = fHeight / 2; i <= inHeightBound; i += strideRows) {
+         for (int j = fWidth / 2; j <= inWidthBound; j += strideCols) {
+            AFloat grad =  layer->GetActivationGradients()[batchIndex](d, currLocalView);
+            if (layer->GetMethod() == "avg") {
+               for (int k = i - fHeight / 2; k <= Int_t(i + (fHeight - 1) / 2); k++) {
+                  for (int l = j - fWidth / 2; l <= Int_t(j + (fWidth - 1) / 2); l++) {
+                     gradients_backward(d, k * inWidth + l) += grad / (fHeight * fWidth);
+                  }
+               }
+            }
+            else {
+               size_t winningIdx = layer->GetIndexMatrix()[batchIndex](d, currLocalView);
+               gradients_backward(d, winningIdx) += grad;
+            }
+            currLocalView++;
          }
       }
    }
+
 }
 
 //____________________________________________________________________________

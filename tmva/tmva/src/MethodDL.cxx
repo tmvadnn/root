@@ -463,8 +463,8 @@ void MethodDL::CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
          ParseDenseLayer(deepNet, nets, layerString->GetString(), subDelimiter);
       } else if (strLayerType == "CONV") {
          ParseConvLayer(deepNet, nets, layerString->GetString(), subDelimiter);
-      } else if (strLayerType == "MAXPOOL") {
-         ParseMaxPoolLayer(deepNet, nets, layerString->GetString(), subDelimiter);
+      } else if (strLayerType == "POOL") {
+         ParsePoolLayer(deepNet, nets, layerString->GetString(), subDelimiter);
       } else if (strLayerType == "RESHAPE") {
          ParseReshapeLayer(deepNet, nets, layerString->GetString(), subDelimiter);
       } else if (strLayerType == "RNN") {
@@ -648,9 +648,9 @@ void MethodDL::ParseConvLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Pases the layer string and creates the appropriate max pool layer
+/// Pases the layer string and creates the appropriate pool layer
 template <typename Architecture_t, typename Layer_t>
-void MethodDL::ParseMaxPoolLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
+void MethodDL::ParsePoolLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
                                  std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> & /*nets*/, TString layerString,
                                  TString delim)
 {
@@ -692,18 +692,18 @@ void MethodDL::ParseMaxPoolLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet
       ++idxToken;
    }
 
-   // Add the Max pooling layer
-   // TMaxPoolLayer<Architecture_t> *maxPoolLayer =
-   deepNet.AddMaxPoolLayer(frameHeight, frameWidth, strideRows, strideCols);
+   // Add the Pooling layer
+   // TPoolLayer<Architecture_t> *PoolLayer =
+   deepNet.AddPoolLayer(frameHeight, frameWidth, strideRows, strideCols);
 
    // Add the same layer to fNet
-   fNet->AddMaxPoolLayer(frameHeight, frameWidth, strideRows, strideCols);
+   fNet->AddPoolLayer(frameHeight, frameWidth, strideRows, strideCols);
 
-   //TMaxPoolLayer<Architecture_t> *copyMaxPoolLayer = new TMaxPoolLayer<Architecture_t>(*maxPoolLayer);
+   //TPoolLayer<Architecture_t> *copyPoolLayer = new TPoolLayer<Architecture_t>(*PoolLayer);
 
    //// add the copy to all slave nets
    //for (size_t i = 0; i < nets.size(); i++) {
-   //   nets[i].AddMaxPoolLayer(copyMaxPoolLayer);
+   //   nets[i].AddPoolLayer(copyPoolLayer);
    //}
 }
 
@@ -1597,18 +1597,20 @@ void MethodDL::ReadWeightsFromXML(void * rootXML)
 
       }
 
-      // MaxPool Layer
-      else if (layerName == "MaxPoolLayer") {
+      // Pool Layer
+      else if (layerName == "PoolLayer") {
 
-         // read maxpool layer info
+         // read pool layer info
          size_t frameHeight, frameWidth = 0;
          size_t strideRows, strideCols = 0;
+         std:: string method = "max";
          gTools().ReadAttr(layerXML, "FrameHeight", frameHeight);
          gTools().ReadAttr(layerXML, "FrameWidth", frameWidth);
          gTools().ReadAttr(layerXML, "StrideRows", strideRows);
          gTools().ReadAttr(layerXML, "StrideCols", strideCols);
+         gTools().ReadAttr(layerXML, "Method", method);
 
-         fNet->AddMaxPoolLayer(frameHeight, frameWidth, strideRows, strideCols);
+         fNet->AddPoolLayer(frameHeight, frameWidth, strideRows, strideCols, 1.0, method);
       }
       else if (layerName == "ReshapeLayer") {
 

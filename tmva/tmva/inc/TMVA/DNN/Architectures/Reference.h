@@ -22,6 +22,7 @@
 #include "TMVA/DNN/Functions.h"
 #include "TMVA/DNN/Architectures/Reference/DataLoader.h"
 #include "TMVA/DNN/Architectures/Reference/TensorDataLoader.h"
+#include "TMVA/DNN/CNN/PoolLayer.h"
 #include <vector>
 
 namespace TMVA
@@ -362,32 +363,32 @@ public:
 
    //____________________________________________________________________________
    //
-   //  Max Pooling Layer Propagation
+   // Pooling Layer Propagation
    //____________________________________________________________________________
-   /** @name Forward Propagation in Max Pooling Layer
+   /** @name Forward Propagation in Pooling Layer
     */
    ///@{
 
-  /** Downsample the matrix \p C to the matrix \p A, using max
-    *  operation, such that the winning indices are stored in matrix
-    *  \p B. */
-   static void Downsample(TMatrixT<AReal> &A, TMatrixT<AReal> &B, const TMatrixT<AReal> &C, size_t imgHeight,
-                          size_t imgWidth, size_t fltHeight, size_t fltWidth, size_t strideRows, size_t strideCols);
+   /** Downsample the matrix \p C to the matrix \p A, using either max
+    * or average operation
+    */
+   static void Downsample(CNN::TPoolLayer<TReference> *layer, const Matrix_t &C, size_t batchIndex);
+
 
    ///@}
 
-   /** @name Backward Propagation in Max Pooling Layer
+   /** @name Backward Propagation in Pooling Layer
     */
    ///@{
 
-   /** Perform the complete backward propagation step in a Max Pooling Layer. Based on the
-    *  winning idices stored in the index matrix, it just forwards the actiovation
-    *  gradients to the previous layer. */
-   static void MaxPoolLayerBackward(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
-                                    const std::vector<TMatrixT<AReal>> &activationGradients,
-                                    const std::vector<TMatrixT<AReal>> &indexMatrix, size_t batchSize, size_t depth,
-                                    size_t nLocalViews);
-   ///@}
+   /** Perform the complete backward propagation step in a Pooling Layer. Implementation
+    * depends on the pooling method.
+    */
+   static void PoolLayerBackward(CNN::TPoolLayer<TReference> const * const layer, Matrix_t &gradients_backward,
+                                 size_t batchIndex);
+
+
+    ///@}
 
    //____________________________________________________________________________
    //

@@ -12,7 +12,7 @@
 #include "TMVA/DNN/Net.h"
 #include "TMVA/DNN/DeepNet.h"
 #include "TMVA/DNN/CNN/ConvLayer.h"
-#include "TMVA/DNN/CNN/MaxPoolLayer.h"
+#include "TMVA/DNN/CNN/PoolLayer.h"
 #include "TMVA/DNN/DenseLayer.h"
 
 namespace TMVA {
@@ -71,9 +71,9 @@ void constructConvNet(TDeepNet<AArchitecture> &net)
    size_t strideRowsPool = 1;
    size_t strideColsPool = 1;
 
-   net.AddMaxPoolLayer(filterHeightPool, filterWidthPool, strideRowsPool, strideColsPool);
+   net.AddPoolLayer(filterHeightPool, filterWidthPool, strideRowsPool, strideColsPool);
 
-   std::cout << "added MaxPool layer " <<  net.GetLayerAt(net.GetDepth() - 1)->GetDepth() << " x " <<  net.GetLayerAt(net.GetDepth() - 1)->GetHeight()
+   std::cout << "added Pool layer " <<  net.GetLayerAt(net.GetDepth() - 1)->GetDepth() << " x " <<  net.GetLayerAt(net.GetDepth() - 1)->GetHeight()
              << " x " << net.GetLayerAt(net.GetDepth() - 1)->GetWidth() << std::endl;
 
 
@@ -158,9 +158,9 @@ void constructLinearConvNet(TDeepNet<AArchitecture> &net)
    size_t strideRowsPool = 1;
    size_t strideColsPool = 1;
 
-   net.AddMaxPoolLayer(filterHeightPool, filterWidthPool, strideRowsPool, strideColsPool);
+   net.AddPoolLayer(filterHeightPool, filterWidthPool, strideRowsPool, strideColsPool);
 
-   std::cout << "added MaxPool layer " <<  net.GetLayerAt(net.GetDepth() - 1)->GetDepth() << " x " <<  net.GetLayerAt(net.GetDepth() - 1)->GetHeight()
+   std::cout << "added Pool layer " <<  net.GetLayerAt(net.GetDepth() - 1)->GetDepth() << " x " <<  net.GetLayerAt(net.GetDepth() - 1)->GetHeight()
              << " x " << net.GetLayerAt(net.GetDepth() - 1)->GetWidth() << std::endl;
 
    size_t depthReshape = 1;
@@ -211,20 +211,20 @@ void constructMasterSlaveConvNets(TDeepNet<AArchitecture> &master, std::vector<T
       nets[i].AddConvLayer(copyConvLayer);
    }
 
-   // Add Max Pooling Layer
+   // Add Pooling Layer
    size_t filterHeightPool = 6;
    size_t filterWidthPool = 6;
    size_t strideRowsPool = 1;
    size_t strideColsPool = 1;
 
-   // Add the Max pooling layer
-   TMaxPoolLayer<AArchitecture> *maxPoolLayer =
-      master.AddMaxPoolLayer(filterHeightPool, filterWidthPool, strideRowsPool, strideColsPool);
-   TMaxPoolLayer<AArchitecture> *copyMaxPoolLayer = new TMaxPoolLayer<AArchitecture>(*maxPoolLayer);
+   // Add the pooling layer
+   TPoolLayer<AArchitecture> *PoolLayer =
+      master.AddPoolLayer(filterHeightPool, filterWidthPool, strideRowsPool, strideColsPool);
+   TPoolLayer<AArchitecture> *copyPoolLayer = new TPoolLayer<AArchitecture>(*PoolLayer);
 
    // Add the copy to all slave nets
    for (size_t i = 0; i < nets.size(); i++) {
-      nets[i].AddMaxPoolLayer(copyMaxPoolLayer);
+      nets[i].AddPoolLayer(copyPoolLayer);
    }
 
    // Add the reshape layer
