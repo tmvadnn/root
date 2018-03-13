@@ -150,41 +150,36 @@ auto testDownsampleIndex(const typename Architecture::Matrix_t &A, const typenam
 /** Back propagate the activation gradients through the pooling layer and check whether the
  * computed gradients are equal to the matrix A. */
 //______________________________________________________________________________
-//template <typename Architecture>
-//auto testPoolingBackward(const typename Architecture::Matrix_t &A, CNN::TPoolLayer<Architecture> &layer,
-//                          double epsilon = 0.1) -> bool
-//{
-//   std::vector<typename Architecture::Matrix_t> &Previous();
-//   for(size_t b = 0; b < layer.GetBatchSize(); b++) {
-//      Previous.emplace_back(layer.GetDepth(), layer.GetInputWidth() * layer.GetInputHeight());
-//   }
-//
-//   Architecture::PoolLayerBackward(Previous, &layer);
-//
-//   /* Needed to support double (almost) equality */
-//   auto almostEqual = [epsilon](double a, double b)
-//   {
-//      // Using a magic EPSILON value (makes sense for the existing tests).
-//      return fabs(a - b) < epsilon;
-//   };
-//
-//
-//   size_t depth = Previous[0].GetNrows();
-//   size_t nLocalViews = Previous[0].GetNcols();
-//
-//   for (size_t b = 0; b < layer.GetBatchSize(); b++) {
-//      for (size_t d = 0; d < depth; d++) {
-//         for (size_t i = 0; i < nLocalViews; i++) {
-//            if (!almostEqual(Previous[b](d, i), A(d, i))) {
-//               return false;
-//            }
-//         }
-//      }
-//   }
-//
-//
-//   return true;
-//}
+template <typename Architecture>
+auto testPoolingBackward(const typename Architecture::Matrix_t &A, CNN::TPoolLayer<Architecture> &layer,
+                         double epsilon = 0.1) -> bool
+{
+   typename Architecture::Matrix_t Previous(layer.GetDepth(), layer.GetInputWidth() * layer.GetInputHeight());
+
+   Architecture::PoolLayerBackward(&layer, Previous, 0);
+
+   /* Needed to support double (almost) equality */
+   auto almostEqual = [epsilon](double a, double b)
+   {
+      // Using a magic EPSILON value (makes sense for the existing tests).
+      return fabs(a - b) < epsilon;
+   };
+
+
+   size_t depth = Previous.GetNrows();
+   size_t nLocalViews = Previous.GetNcols();
+
+
+   for (size_t d = 0; d < depth; d++) {
+      for (size_t i = 0; i < nLocalViews; i++) {
+         if (!almostEqual(Previous(d, i), A(d, i))) {
+            return false;
+         }
+      }
+   }
+
+   return true;
+}
 
 /** Flatten the 3D tensor A using the Flatten function and compare it to
  *  the result in the flat matrix B. */

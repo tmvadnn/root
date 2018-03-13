@@ -62,7 +62,7 @@ size_t calculateDimension(size_t imgDim, size_t fltDim, size_t padding, size_t s
  *  zero-padding height = 0, zero-padding width = 0,
  *************************************************************************/
 
-void test1()
+void testMaxPooling1()
 {
 
    double imgTest1[][20] = {
@@ -130,7 +130,7 @@ void test1()
  *  zero-padding height = 0, zero-padding width = 0,
  *************************************************************************/
 
-void test2()
+void testMaxPooling2()
 {
 
    double imgTest2[][36] = {{200, 79, 69,  58,  98,  168, 49,  230, 21,  141, 218, 38, 72, 224, 14,  65,  147, 105,
@@ -201,11 +201,11 @@ void testAveragePooling1()
 
    double output[][10] =
       {
-         {108, 218,
-          230, 218,
-          224, 200,
-          153, 233,
-          236, 233}
+         {108.000, 120.167,
+          101.667, 119.000,
+           81.000, 120.833,
+           90.333, 133.500,
+          118.167, 149.500}
       };
 
    size_t depth = 1;
@@ -254,13 +254,86 @@ void testAveragePooling1()
       std::cout << "Test not passed!" << std::endl;
 }
 
+void testPoolingBackward()
+{
+
+   /* Activations of the previous layer. These will be computed by the backward pass. */
+   double expected[][36] =
+      {
+         {2.5,  2.5,  2.5,  -1.1,  -1.1, -1.1,
+          3.5,  3.5,  3.5,  -0.6,  -0.6, -0.6,
+          3.0,  3.0,  3.0,  -0.5,  -0.5, -0.5,
+          5.5,  5.5,  5.5,  -2.5,  -2.5, -2.5,
+          3.0,  3.0,  3.0,   2.0,   2.0,  2.0,
+         -0.5, -0.5, -0.5,   3.5,   3.5,  3.5}
+      };
+
+   /* Activation gradients, coming from the next layer. These will be back-propagated. */
+   double next[][10] =
+      {
+         { 15.0, -6.6,
+            6.0,  3.0,
+           12.0, -6.0,
+           21.0, -9.0,
+           -3.0, 21.0}
+      };
+
+   size_t depth = 1;
+   size_t inHeight = 6;
+   size_t inWidth = 6;
+   size_t frameHeight = 2;
+   size_t frameWidth = 3;
+   size_t strideRows = 1;
+   size_t strideCols = 3;
+
+   std::cout << "Filling expected matrix A" << std::endl;
+   Matrix_t A(depth, inHeight * inWidth);
+
+   for(size_t i = 0; i < (size_t) A.GetNrows(); i++){
+      for(size_t j = 0; j < (size_t) A.GetNcols(); j++){
+         A(i, j) = expected[i][j];
+      }
+   }
+
+   size_t height = calculateDimension(inHeight, frameHeight, 0, strideRows);
+
+   size_t width = calculateDimension(inWidth, frameWidth, 0, strideCols);
+
+   CNN::TPoolLayer<TCpu<double>> layer = CNN::TPoolLayer<TCpu<double>>(1, depth, inHeight, inWidth,
+                                                                                   height, width, 1, depth,
+                                                                                   height * width, frameHeight,
+                                                                                   frameWidth, strideRows,
+                                                                                   strideCols, 1.0, "avg");
+
+
+   /* Fill the activation gradients */
+   for(size_t d = 0; d < depth; d++) {
+      for(size_t i = 0; i < height * width; i++) {
+         layer.GetActivationGradients()[0](d, i) = next[d][i];
+      }
+   }
+
+   bool status = testPoolingBackward<TCpu<double>>(A, layer);
+
+   if(status)
+      std::cout << "Test passed!" << std::endl;
+   else
+      std::cout << "Test not passed!" << std::endl;
+}
+
 int main()
 {
    std::cout << "Testing Downsample function:" << std::endl;
 
-   std::cout << "Test 1: " << std::endl;
-   test1();
+   std::cout << "Test Max 1: " << std::endl;
+   testMaxPooling1();
 
-   std::cout << "Test 2: " << std::endl;
-   test2();
+   std::cout << "Test Max 2: " << std::endl;
+   testMaxPooling2();
+
+   std::cout << "Test Average 1: " << std::endl;
+   testAveragePooling1();
+
+   std::cout << "Test Backward Pooling (average): " << std::endl;
+   testPoolingBackward();
 }
