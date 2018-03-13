@@ -384,8 +384,9 @@ public:
    /** Perform the complete backward propagation step in a Pooling Layer. Implementation
     * depends on the pooling method.
     */
-   static void PoolLayerBackward(std::vector<Matrix_t> &activationGradientsBackward,
-                                 CNN::TPoolLayer<TReference> const * const layer);
+   static void PoolLayerBackward(CNN::TPoolLayer<TReference> const * const layer, Matrix_t &gradients_backward,
+                                 size_t batchIndex);
+
 
     ///@}
 

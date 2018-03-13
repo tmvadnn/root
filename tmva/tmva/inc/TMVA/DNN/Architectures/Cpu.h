@@ -374,8 +374,8 @@ public:
    ///@{
 
    /** Perform the complete backward propagation step in a Pooling Layer. */
-   static void PoolLayerBackward(std::vector<TCpuMatrix<AReal>> &activationGradientsBackward,
-                                 CNN::TPoolLayer<TCpu> const * const layer);
+   static void PoolLayerBackward(CNN::TPoolLayer<TCpu> const * const layer, TCpuMatrix<AReal> &gradients_backward,
+                                 size_t batchIndex);
 
 
    ///@}

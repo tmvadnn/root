@@ -381,9 +381,9 @@ TReference<AReal>::Downsample(CNN::TPoolLayer <TReference> *layer, const TMatrix
 }
 
 //______________________________________________________________________________
-template <typename AReal>
-void TReference<AReal>::PoolLayerBackward(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
-                                           CNN::TPoolLayer<TReference> const * const layer)
+template <typename AFloat>
+void TReference<AFloat>::PoolLayerBackward(CNN::TPoolLayer<TReference> const * const layer,
+                                           TMatrixT<AFloat> &gradients_backward, size_t batchIndex)
 {
    size_t fHeight = layer->GetFrameHeight(), fWidth = layer->GetFrameWidth();
    size_t inHeight = layer->GetInputHeight(), inWidth = layer->GetInputWidth();
@@ -393,31 +393,30 @@ void TReference<AReal>::PoolLayerBackward(std::vector<TMatrixT<AReal>> &activati
 
    size_t currLocalView = 0;
 
-   for (size_t b = 0; b < layer->GetBatchSize(); b++) {
-      for (size_t d = 0; d < layer->GetDepth(); d++) {
 
-         // initialize to zeros
-         for (size_t t = 0; t < (size_t)activationGradientsBackward[b].GetNcols(); t++) {
-            activationGradientsBackward[b](d, t) = 0;
-         }
+   for (size_t d = 0; d < layer->GetDepth(); d++) {
 
-         // centers
-         for (int i = fHeight / 2; i <= inHeightBound; i += strideRows) {
-            for (int j = fWidth / 2; j <= inWidthBound; j += strideCols) {
-               AReal grad =  layer->GetActivationGradients()[b](d, currLocalView);
-               if (layer->GetMethod() == "avg") {
-                  for (int k = i - fHeight / 2; k <= Int_t(i + (fHeight - 1) / 2); k++) {
-                     for (int l = j - fWidth / 2; l <= Int_t(j + (fWidth - 1) / 2); l++) {
-                        activationGradientsBackward[b](d, k * inWidth + l) += grad / (fHeight * fWidth);
-                     }
+      // initialize to zeros
+      for (size_t t = 0; t < (size_t)gradients_backward.GetNcols(); t++) {
+         gradients_backward(d, t) = 0;
+      }
+
+      // centers
+      for (int i = fHeight / 2; i <= inHeightBound; i += strideRows) {
+         for (int j = fWidth / 2; j <= inWidthBound; j += strideCols) {
+            AFloat grad =  layer->GetActivationGradients()[batchIndex](d, currLocalView);
+            if (layer->GetMethod() == "avg") {
+               for (int k = i - fHeight / 2; k <= Int_t(i + (fHeight - 1) / 2); k++) {
+                  for (int l = j - fWidth / 2; l <= Int_t(j + (fWidth - 1) / 2); l++) {
+                     gradients_backward(d, k * inWidth + l) += grad / (fHeight * fWidth);
                   }
                }
-               else {
-                  size_t winningIdx = layer->GetIndexMatrix()[b](d, currLocalView);
-                  activationGradientsBackward[b](d, winningIdx) += grad;
-               }
-               currLocalView++;
             }
+            else {
+               size_t winningIdx = layer->GetIndexMatrix()[batchIndex](d, currLocalView);
+               gradients_backward(d, winningIdx) += grad;
+            }
+            currLocalView++;
          }
       }
    }
