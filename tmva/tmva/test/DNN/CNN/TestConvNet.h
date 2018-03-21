@@ -133,6 +133,34 @@ auto testDownsample(const typename Architecture::Matrix_t &A, const typename Arc
    return true;
 }
 
+/** Downsample the matrix A and check whether the downsampled version
+ *  is equal to B */
+//______________________________________________________________________________
+template <typename Architecture>
+auto testDownsampleAvg(const typename Architecture::Matrix_t &A,const typename Architecture::Matrix_t &B, 
+                       size_t imgHeight, size_t imgWidth, size_t fltHeight,
+                       size_t fltWidth, size_t strideRows, size_t strideCols) -> bool
+{
+
+   size_t m1, n1;
+   m1 = B.GetNrows();
+   n1 = B.GetNcols();
+
+   typename Architecture::Matrix_t ADown(m1, n1);
+
+   Architecture::DownsampleAvg(ADown, A, imgHeight, imgWidth, fltHeight, fltWidth, strideRows, strideCols);
+
+   for (size_t i = 0; i < m1; i++) {
+      for (size_t j = 0; j < n1; j++) {
+         if (ADown(i, j) != B(i, j)) {
+            return false;
+         }
+      }
+   }
+
+   return true;
+}
+
 /** Flatten the 3D tensor A using the Flatten function and compare it to
  *  the result in the flat matrix B. */
 //______________________________________________________________________________
