@@ -24,8 +24,8 @@
  * (http://tmva.sourceforge.net/LICENSE)                                          *
  **********************************************************************************/
 
-#ifndef MAXPOOLLAYER_H_
-#define MAXPOOLLAYER_H_
+#ifndef AVGPOOLLAYER_H_
+#define AVGPOOLLAYER_H_
 
 #include "TMatrix.h"
 
@@ -176,7 +176,7 @@ auto TAvgPoolLayer<Architecture_t>::Backward(std::vector<Matrix_t> &gradients_ba
                                              std::vector<Matrix_t> & /*inp1*/, std::vector<Matrix_t> &
                                              /*inp2*/) -> void
 {
-   Architecture_t::MaxPoolLayerBackward(gradients_backward, this->GetActivationGradients(),
+   Architecture_t::AvgPoolLayerBackward(gradients_backward, this->GetActivationGradients(),
                                         this->GetBatchSize(), this->GetDepth(), this->GetNLocalViews(),
                                         this->GetFrameHeight(), this->GetFrameWidth());
 }
