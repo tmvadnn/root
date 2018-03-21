@@ -383,6 +383,35 @@ public:
 
    //____________________________________________________________________________
    //
+   //  Average Pooling Layer Propagation
+   //____________________________________________________________________________
+   /** @name Forward Propagation in Avg Pooling Layer
+    */
+   ///@{
+
+   /** Downsample the matrix \p B to the matrix \p A, using avg
+    * operation
+    */
+   static void DownsampleAvg(TCpuMatrix<AReal> &A, const TCpuMatrix<AReal> &B, size_t imgHeight,
+                          size_t imgWidth, size_t fltHeight, size_t fltWidth, size_t strideRows, size_t strideCols);
+
+   ///@}
+
+   /** @name Backward Propagation in Avg Pooling Layer
+    */
+   ///@{
+   /** Perform the complete backward propagation step in a Pooling Layer. Based on the
+    *  filter sizes used for computing the average, it just forwards the activation
+    *  gradients to the previous layer. */
+   static void AvgPoolLayerBackward(std::vector<TCpuMatrix<AReal>> &activationGradientsBackward,
+                                    const std::vector<TCpuMatrix<AReal>> &activationGradients,
+                                    size_t batchSize, size_t depth, size_t nLocalViews, 
+                                    size_t fltHeight, size_t fltWidth);
+
+   ///@}
+
+   //____________________________________________________________________________
+   //
    //  Reshape Layer Propagation
    //____________________________________________________________________________
    /** @name Forward and Backward Propagation in Reshape Layer

@@ -572,6 +572,60 @@ void TCpu<AFloat>::MaxPoolLayerBackward(std::vector<TCpuMatrix<AFloat>> &activat
 
 //____________________________________________________________________________
 template <typename AFloat>
+void TCpu<AFloat>::DownsampleAvg(TCpuMatrix<AFloat> &A, const TCpuMatrix<AFloat> &B,
+                              size_t imgHeight, size_t imgWidth, size_t fltHeight, size_t fltWidth, size_t strideRows,
+                              size_t strideCols)
+{
+   // image boudaries
+   int imgHeightBound = imgHeight - (fltHeight - 1) / 2 - 1;
+   int imgWidthBound = imgWidth - (fltWidth - 1) / 2 - 1;
+   size_t currLocalView = 0;
+
+   // centers
+   for (int i = fltHeight / 2; i <= imgHeightBound; i += strideRows) {
+      for (int j = fltWidth / 2; j <= imgWidthBound; j += strideCols) {
+         // within local views
+         for (int m = 0; m < (Int_t)B.GetNrows(); m++) {
+            AFloat value = 0;
+
+            for (int k = i - fltHeight / 2; k <= Int_t(i + (fltHeight - 1) / 2); k++) {
+               for (int l = j - fltWidth / 2; l <= Int_t(j + (fltWidth - 1) / 2); l++) {
+                   value += B(m, k * imgWidth + l);                  
+               }
+            }
+            A(m, currLocalView) = value/(fltHeight*fltWidth);
+         }
+         currLocalView++;
+      }
+   }
+}
+
+//____________________________________________________________________________
+template <typename AFloat>
+void TCpu<AFloat>::AvgPoolLayerBackward(std::vector<TCpuMatrix<AFloat>> &activationGradientsBackward,
+                                        const std::vector<TCpuMatrix<AFloat>> &activationGradients,
+                                        size_t batchSize, size_t depth, size_t nLocalViews,
+                                        size_t fltHeight, size_t fltWidth)
+{
+   for (size_t i = 0; i < batchSize; i++) {
+      for (size_t j = 0; j < depth; j++) {
+
+         // initialize to zeros
+         for (size_t t = 0; t < (size_t)activationGradientsBackward[i].GetNcols(); t++) {
+            activationGradientsBackward[i](j, t) = 0;
+         }
+
+         // set values
+         for (size_t k = 0; k < nLocalViews; k++) {
+            AFloat grad = activationGradients[i](j, k);            
+            activationGradientsBackward[i](j, k) += grad/(fltHeight*fltWidth);
+         }
+      }
+   }
+}
+
+//____________________________________________________________________________
+template <typename AFloat>
 void TCpu<AFloat>::Reshape(TCpuMatrix<AFloat> &A, const TCpuMatrix<AFloat> &B)
 {
    size_t nColsA = A.GetNcols();

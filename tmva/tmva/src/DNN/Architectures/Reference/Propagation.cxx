@@ -383,6 +383,60 @@ void TReference<AReal>::MaxPoolLayerBackward(std::vector<TMatrixT<AReal>> &activ
 
 //______________________________________________________________________________
 template <typename AReal>
+void TReference<AReal>::DownsampleAvg(TMatrixT<AReal> &A, const TMatrixT<AReal> &B, size_t imgHeight,
+                                   size_t imgWidth, size_t fltHeight, size_t fltWidth, size_t strideRows,
+                                   size_t strideCols)
+{
+   // image boudaries
+   int imgHeightBound = imgHeight - (fltHeight - 1) / 2 - 1;
+   int imgWidthBound = imgWidth - (fltWidth - 1) / 2 - 1;
+   size_t currLocalView = 0;
+
+   // centers
+   for (int i = fltHeight / 2; i <= imgHeightBound; i += strideRows) {
+      for (int j = fltWidth / 2; j <= imgWidthBound; j += strideCols) {
+         // within local views
+         for (int m = 0; m < B.GetNrows(); m++) {
+            AReal value = 0;
+
+            for (int k = i - Int_t(fltHeight) / 2; k <= i + (Int_t(fltHeight) - 1) / 2; k++) {
+               for (int l = j - Int_t(fltWidth) / 2; l <= j + (Int_t(fltWidth) - 1) / 2; l++) {
+                  value += B(m, k * imgWidth + l);
+               }
+            }
+            A(m, currLocalView) = (AReal)value/(fltHeight*fltHeight);
+         }
+         currLocalView++;
+      }
+   }
+}
+
+//______________________________________________________________________________
+template <typename AReal>
+void TReference<AReal>::AvgPoolLayerBackward(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
+                                             const std::vector<TMatrixT<AReal>> &activationGradients,
+                                             size_t batchSize,size_t depth, size_t nLocalViews,
+                                             size_t fltHeight,size_t fltWidth)
+{
+   for (size_t i = 0; i < batchSize; i++) {
+      for (size_t j = 0; j < depth; j++) {
+
+         // initialize to zeros
+         for (size_t t = 0; t < (size_t)activationGradientsBackward[i].GetNcols(); t++) {
+            activationGradientsBackward[i][j][t] = 0;
+         }
+
+         // set values
+         for (size_t k = 0; k < nLocalViews; k++) {
+            AReal grad = activationGradients[i][j][k];
+            activationGradientsBackward[i][j][k] = grad/(fHeight*fWidth);
+         }
+      }
+   }
+}
+
+//______________________________________________________________________________
+template <typename AReal>
 void TReference<AReal>::Reshape(TMatrixT<AReal> &A, const TMatrixT<AReal> &B)
 {
    auto nColsA = A.GetNcols();
