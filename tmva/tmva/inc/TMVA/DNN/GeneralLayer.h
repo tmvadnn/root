@@ -227,7 +227,10 @@ VGeneralLayer<Architecture_t>::VGeneralLayer(size_t batchSize, size_t inputDepth
       fBiasGradients.emplace_back(biasesNRows, biasesNCols);
    }
 
-   for (size_t i = 0; i < outputNSlices; i++) {
+   if (batchSize != outputNSlices) {
+      std::cerr << "The outputNSlices argument is deprecated, using batchSize instead.\n";
+   }
+   for (size_t i = 0; i < batchSize; i++) {
       fOutput.emplace_back(outputNRows, outputNCols);
       fActivationGradients.emplace_back(outputNRows, outputNCols);
    }
@@ -256,7 +259,10 @@ VGeneralLayer<Architecture_t>::VGeneralLayer(size_t batchSize, size_t inputDepth
       fBiasGradients.emplace_back(biasesNRows[i], biasesNCols[i]);
    }
 
-   for (size_t i = 0; i < outputNSlices; i++) {
+   if (batchSize != outputNSlices) {
+      std::cerr << "The outputNSlices argument is deprecated, using batchSize instead.\n";
+   }
+   for (size_t i = 0; i < batchSize; i++) {
       fOutput.emplace_back(outputNRows, outputNCols);
       fActivationGradients.emplace_back(outputNRows, outputNCols);
    }
@@ -298,11 +304,12 @@ VGeneralLayer<Architecture_t>::VGeneralLayer(VGeneralLayer<Architecture_t> *laye
       Architecture_t::Copy(fBiases[i], layer->GetBiasesAt(i));
    }
 
-   size_t outputNSlices = (layer->GetOutput()).size();
+   size_t batchSize = layer->GetBatchSize();
    size_t outputNRows = 0;
    size_t outputNCols = 0;
 
-   for (size_t i = 0; i < outputNSlices; i++) {
+
+   for (size_t i = 0; i < batchSize; i++) {
       outputNRows = (layer->GetOutputAt(i)).GetNrows();
       outputNCols = (layer->GetOutputAt(i)).GetNcols();
 
@@ -347,11 +354,11 @@ VGeneralLayer<Architecture_t>::VGeneralLayer(const VGeneralLayer &layer)
       Architecture_t::Copy(fBiases[i], layer.fBiases[i]);
    }
 
-   size_t outputNSlices = layer.fOutput.size();
+   size_t batchSize = layer.GetBatchSize();
    size_t outputNRows = 0;
    size_t outputNCols = 0;
 
-   for (size_t i = 0; i < outputNSlices; i++) {
+   for (size_t i = 0; i < batchSize; i++) {
       outputNRows = (layer.fOutput[i]).GetNrows();
       outputNCols = (layer.fOutput[i]).GetNcols();
 
