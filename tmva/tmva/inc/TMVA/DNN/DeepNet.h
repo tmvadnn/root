@@ -43,6 +43,7 @@
 
 #include "TMVA/DNN/RNN/RNNLayer.h"
 
+#define HAVE_DAE
 #ifdef HAVE_DAE
 #include "TMVA/DNN/DAE/CompressionLayer.h"
 #include "TMVA/DNN/DAE/CorruptionLayer.h"
@@ -59,7 +60,7 @@ namespace DNN {
 
    using namespace CNN;
    using namespace RNN;
-   //using namespace DAE;
+   using namespace DAE;
 
 /** \class TDeepNet
 
