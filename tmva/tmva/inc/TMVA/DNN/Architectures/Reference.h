@@ -63,6 +63,10 @@ public:
    /** Add the vectors biases row-wise to the matrix output */
    static void AddRowWise(TMatrixT<Scalar_t> &output,
                           const TMatrixT<Scalar_t> &biases);
+   /** In-place Hadamard (element-wise) product of matrices \p A and \p B
+    *  with the result being written into \p A. */
+   static void Hadamard(TMatrixT<Scalar_t> &A,
+                        const TMatrixT<Scalar_t> &B);
    ///@}
 
    /** @name Backward Propagation
@@ -96,6 +100,44 @@ public:
                                             const TMatrixT<Scalar_t> & weights_state, // HxH
                                             const TMatrixT<Scalar_t> & input,  // BxD
                                             TMatrixT<Scalar_t> & input_gradient);
+    /** Backward Pass for a LSTM network */
+    static Matrix_t & LSTMLayerBackward(const TMatrixT<Scalar_t> & /* state_gradients_backward */,
+                                        /* const TMatrixT<Scalar_t> & input_state_gradients_backward, */
+                                        /* const TMatrixT<Scalar_t> & forget_state_gradients_backward, */
+                                        /* const TMatrixT<Scalar_t> & candidate_state_gradients_backward, */
+                                        /* const TMatrixT<Scalar_t> & output_state_gradients_backward, */
+                                        TMatrixT<Scalar_t> & input_weight_gradients,
+                                        TMatrixT<Scalar_t> & forget_weight_gradients,
+                                        TMatrixT<Scalar_t> & candidate_weight_gradients,
+                                        TMatrixT<Scalar_t> & output_weight_gradients,
+                                        TMatrixT<Scalar_t> & input_state_weight_gradients,
+                                        TMatrixT<Scalar_t> & forget_state_weight_gradients,
+                                        TMatrixT<Scalar_t> & candidate_state_weight_gradients,
+                                        TMatrixT<Scalar_t> & output_state_weight_gradients,
+                                        TMatrixT<Scalar_t> & input_bias_gradients,
+                                        TMatrixT<Scalar_t> & forget_bias_gradients,
+                                        TMatrixT<Scalar_t> & candidate_bias_gradients,
+                                        TMatrixT<Scalar_t> & output_bias_gradients,
+                                        TMatrixT<Scalar_t> & dIg,
+                                        TMatrixT<Scalar_t> & dCv,
+                                        TMatrixT<Scalar_t> & dFg,
+                                        TMatrixT<Scalar_t> & dOg,
+                                        const TMatrixT<Scalar_t> & hidden_state,
+                                        const TMatrixT<Scalar_t> & /* cell_state */,
+                                        const TMatrixT<Scalar_t> & weights_input,
+                                        const TMatrixT<Scalar_t> & weights_forget,
+                                        const TMatrixT<Scalar_t> & weights_candidate,
+                                        const TMatrixT<Scalar_t> & weights_output,
+                                        const TMatrixT<Scalar_t> & /* weights_input_state */,
+                                        const TMatrixT<Scalar_t> & /* weights_forget_state */,
+                                        const TMatrixT<Scalar_t> & /* weights_candidate_state */,
+                                        const TMatrixT<Scalar_t> & /* weights_output_state */,
+                                        const TMatrixT<Scalar_t> & input,
+                                        TMatrixT<Scalar_t> & input_gradient,
+                                        TMatrixT<Scalar_t> & forget_gradient,
+                                        TMatrixT<Scalar_t> & candidate_gradient,
+                                        TMatrixT<Scalar_t> & output_gradient);
+
    /** Adds a the elements in matrix B scaled by c to the elements in
     *  the matrix A. This is required for the weight update in the gradient
     *  descent step.*/

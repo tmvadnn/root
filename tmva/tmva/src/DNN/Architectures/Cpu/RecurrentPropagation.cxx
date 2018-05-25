@@ -81,5 +81,113 @@ auto TCpu<AFloat>::RecurrentLayerBackward(TCpuMatrix<AFloat> & state_gradients_b
    return input_gradient;
 }
 
+//______________________________________________________________________________
+template <typename AFloat>
+auto TCpu<AFloat>::LSTMLayerBackward(const TCpuMatrix<AFloat> & /* state_gradients_backward */,
+                                     /* const TCpuMatrix<AFloat> & input_state_gradients_backward, */
+                                     /* const TCpuMatrix<AFloat> & forget_state_gradients_backward, */
+                                     /* const TCpuMatrix<AFloat> & candidate_state_gradients_backward, */
+                                     /* const TCpuMatrix<AFloat> & output_state_gradients_backward, */
+                                     TCpuMatrix<AFloat> & input_weight_gradients,
+                                     TCpuMatrix<AFloat> & forget_weight_gradients,
+                                     TCpuMatrix<AFloat> & candidate_weight_gradients,
+                                     TCpuMatrix<AFloat> & output_weight_gradients,
+                                     TCpuMatrix<AFloat> & input_state_weight_gradients,
+                                     TCpuMatrix<AFloat> & forget_state_weight_gradients,
+                                     TCpuMatrix<AFloat> & candidate_state_weight_gradients,
+                                     TCpuMatrix<AFloat> & output_state_weight_gradients,
+                                     TCpuMatrix<AFloat> & input_bias_gradients,
+                                     TCpuMatrix<AFloat> & forget_bias_gradients,
+                                     TCpuMatrix<AFloat> & candidate_bias_gradients,
+                                     TCpuMatrix<AFloat> & output_bias_gradients,
+                                     TCpuMatrix<AFloat> & di,
+                                     TCpuMatrix<AFloat> & dc,
+                                     TCpuMatrix<AFloat> & df,
+                                     TCpuMatrix<AFloat> & dout,
+                                     const TCpuMatrix<AFloat> & output_state,
+                                     const TCpuMatrix<AFloat> & /* cell_state */,
+                                     const TCpuMatrix<AFloat> & weights_input,
+                                     const TCpuMatrix<AFloat> & weights_forget,
+                                     const TCpuMatrix<AFloat> & weights_candidate,
+                                     const TCpuMatrix<AFloat> & weights_output,
+                                     const TCpuMatrix<AFloat> & /* weights_input_state */,
+                                     const TCpuMatrix<AFloat> & /* weights_forget_state */,
+                                     const TCpuMatrix<AFloat> & /* weights_candidate_state */,
+                                     const TCpuMatrix<AFloat> & /* weights_output_state */,
+                                     const TCpuMatrix<AFloat> & input,
+                                     TCpuMatrix<AFloat> & input_gradient,
+                                     TCpuMatrix<AFloat> & forget_gradient,
+                                     TCpuMatrix<AFloat> & candidate_gradient,
+                                     TCpuMatrix<AFloat> & output_gradient)
+-> TCpuMatrix<AFloat> &
+{
+    /* TODO: Update all gate values during backward pass using required equations.
+     * Reference: https://medium.com/@aidangomez/let-s-do-this-f9b699de31d9 */
+
+    // Input gradients.
+    if (input_gradient.GetNElements() > 0) Multiply(input_gradient, di, weights_input);
+
+    // Forget gradients.
+    if (forget_gradient.GetNElements() > 0) Multiply(forget_gradient, df, weights_forget);
+
+    // Candidate gradients
+    if (candidate_gradient.GetNElements() > 0) Multiply(candidate_gradient, dc, weights_candidate);
+
+    // Output gradients
+    if (output_gradient.GetNElements() > 0) Multiply(output_gradient, dout, weights_output);
+
+    // ______________________________________________________
+    // Weight gradients calculation.
+    // Total there are 8 different weight matrices.
+
+    // For input gate.
+    if (input_weight_gradients.GetNElements() > 0) {
+        TransposeMultiply(input_weight_gradients, di, input, 1.0, 1.0);
+    }
+    if (input_state_weight_gradients.GetNElements() > 0) {
+        TransposeMultiply(input_state_weight_gradients, di, output_state, 1.0, 1.0);
+    }
+
+    // For forget gate.
+    if (forget_weight_gradients.GetNElements() > 0) {
+        TransposeMultiply(forget_weight_gradients, df, input, 1.0, 1.0);
+    }
+    if (forget_state_weight_gradients.GetNElements() > 0) {
+        TransposeMultiply(forget_state_weight_gradients, df, output_state, 1.0, 1.0);
+    }
+
+    // For candidate gate.
+    if (candidate_weight_gradients.GetNElements() > 0) {
+        TransposeMultiply(candidate_weight_gradients, dc, input, 1.0, 1.0);
+    }
+    if (candidate_state_weight_gradients.GetNElements() > 0) {
+        TransposeMultiply(candidate_state_weight_gradients, dc, output_state, 1.0, 1.0);
+    }
+
+    // For output gate.
+    if (output_weight_gradients.GetNElements() > 0) {
+        TransposeMultiply(output_weight_gradients, dout, input, 1.0, 1.0);
+    }
+    if (output_state_weight_gradients.GetNElements() > 0) {
+        TransposeMultiply(output_state_weight_gradients, dout, output_state, 1.0, 1.0);
+    }
+
+    // We've 4 bias vectors.
+    if (input_bias_gradients.GetNElements() > 0) {
+        SumColumns(input_bias_gradients, di, 1.0, 1.0);
+    }
+    if (forget_bias_gradients.GetNElements() > 0) {
+        SumColumns(forget_bias_gradients, df, 1.0, 1.0);
+    }
+    if (candidate_bias_gradients.GetNElements() > 0) {
+        SumColumns(candidate_bias_gradients, dc, 1.0, 1.0);
+    }
+    if (output_bias_gradients.GetNElements() > 0) {
+        SumColumns(output_bias_gradients, dout, 1.0, 1.0);
+    }
+
+    return input_gradient;
+}
+
 } // namespace DNN
 } // namespace TMVA

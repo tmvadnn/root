@@ -465,5 +465,16 @@ void TReference<AReal>::Rearrange(std::vector<TMatrixT<AReal>> &out, const std::
    return;
 }
 
+//______________________________________________________________________________
+template <typename AReal>
+void TReference<AReal>::Hadamard(TMatrixT<AReal> &B, const TMatrixT<AReal> &A)
+{
+      for (size_t i = 0; i < (size_t) B.GetNcols(); i++) {
+            for (size_t j = 0; j < (size_t) B.GetNrows(); j++) {
+                  B(i, j) *= A(i, j); 
+            }
+      }
+}
+
 } // namespace DNN
 } // namespace TMVA
