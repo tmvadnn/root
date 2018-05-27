@@ -55,7 +55,8 @@ enum class ELossFunction
 {
     kCrossEntropy        = 'C',
     kMeanSquaredError    = 'R',
-    kSoftmaxCrossEntropy = 'S'
+    kSoftmaxCrossEntropy = 'S',
+    kKLDivergence        = 'D'
 };
 
 /*! Enum representing the regularization type applied for a given layer */
@@ -171,6 +172,7 @@ inline auto evaluate(ELossFunction f, const typename Architecture_t::Matrix_t &Y
     case ELossFunction::kCrossEntropy: return Architecture_t::CrossEntropy(Y, output, weights);
     case ELossFunction::kMeanSquaredError: return Architecture_t::MeanSquaredError(Y, output, weights);
     case ELossFunction::kSoftmaxCrossEntropy: return Architecture_t::SoftmaxCrossEntropy(Y, output, weights);
+    case ELossFunction::kKLDivergence: return Architecture_t::KLDivergence(Y,output,weights);
     }
     return 0.0;
 }
@@ -190,8 +192,21 @@ inline void evaluateGradients(typename Architecture_t::Matrix_t &dY, ELossFuncti
     case ELossFunction::kMeanSquaredError: Architecture_t::MeanSquaredErrorGradients(dY, Y, output, weights); break;
     case ELossFunction::kSoftmaxCrossEntropy :
        Architecture_t::SoftmaxCrossEntropyGradients(dY, Y, output, weights);
-       break;
+       break;  
     }
+}
+
+template <typename Architecture_t>
+inline void evaluateGradients(typename Architecture_t::Matrix_t &dMetricOne, typename Architecture_t::Matrix_t &dMetricTwo,
+                              ELossFunction f, const typename Architecture_t::Matrix_t &MetricOne,
+                              const typename Architecture_t::Matrix_t &MetricTwo,
+                              const typename Architecture_t::Matrix_t &weights)
+{
+    switch(f)
+    {
+    case ELossFunction::kKLDivergence: Architecture_t::KLDivergenceGradients(dMetricOne, dMetricTwo, MetricOne, MetricTwo, weights);
+    break;
+    } 
 }
 
 
