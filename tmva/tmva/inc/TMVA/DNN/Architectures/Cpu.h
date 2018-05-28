@@ -193,7 +193,8 @@ public:
                                             const TCpuMatrix<Scalar_t> &output, const TCpuMatrix<Scalar_t> &weights);
 
    /** KL Divergence between the distributions corresponding to mean and standard deviation.
-     * This is applied at the end of Encoder network. */
+     * This is applied at the end of Encoder network. The StandardDeviation is assumed to
+     * be the log of standard deviation and the computation is done accordingly. */
    static Scalar_t KLDivergence(const TCpuMatrix<Scalar_t> &Mean, const TCpuMatrix<Scalar_t> &StandardDeviation,
                                 const TCpuMatrix<Scalar_t> &weights);
    static void KLDivergenceGradients(TCpuMatrix<Scalar_t> &dMean, TCpuMatrix<Scalar_t> &dStandardDeviation,

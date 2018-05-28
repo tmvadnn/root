@@ -194,7 +194,8 @@ public:
    static void SoftmaxCrossEntropyGradients(TCudaMatrix<AFloat> &dY, const TCudaMatrix<AFloat> &Y,
                                             const TCudaMatrix<AFloat> &output, const TCudaMatrix<AFloat> &weights);
 
-   // Similarity measure using KL divergence.
+   /** KL Divergence between the distributions corresponding to mean and standard deviation.
+     * This is applied at the end of Encoder network. */
    static AFloat KLDivergence(const TCudaMatrix<AFloat> &Y, const TCudaMatrix<AFloat> &output,
                               const TCudaMatrix<AFloat> &weights);
    static void KLDivergenceGradients(TCudaMatrix<AFloat> &dMean, TCudaMatrix<AFloat> &dStandardDeviation,

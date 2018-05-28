@@ -196,6 +196,9 @@ inline void evaluateGradients(typename Architecture_t::Matrix_t &dY, ELossFuncti
     }
 }
 
+/*! Compute the gradients with respect to the metrics used for 
+*  similarity measure. The gradients are returned in two separate Matrices. */
+//______________________________________________________________________________
 template <typename Architecture_t>
 inline void evaluateGradients(typename Architecture_t::Matrix_t &dMetricOne, typename Architecture_t::Matrix_t &dMetricTwo,
                               ELossFunction f, const typename Architecture_t::Matrix_t &MetricOne,

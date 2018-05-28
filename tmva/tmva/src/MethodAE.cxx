@@ -157,7 +157,7 @@ void MethodAE::DeclareOptions()
 
    DeclareOptionRef(fBatchLayoutString = "0|0|0", "BatchLayout", "The Layout of the batch");
 
-   DeclareOptionRef(fLayoutString = "DENSE|(N+100)*2|SOFTSIGN,DENSE|0|LINEAR", "Layout", "Layout of the network.");
+   DeclareOptionRef(fLayoutString = "Encoder={DENSE|(N+100)*2|SOFTSIGN}Decoder={DENSE|0|LINEAR}", "Layout", "Layout of the network.");
 
    DeclareOptionRef(fErrorStrategy = "CROSSENTROPY", "ErrorStrategy", "Loss function: Mean squared error (regression)"
                                                                       " or cross entropy (binary classification).");
@@ -469,7 +469,8 @@ void MethodAE::CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Create an Encoder
+/// Create an Encoder from the layout string received
+/// from CreateDeepNet method
 template <typename Architecture_t, typename Layer_t>
 void MethodAE::CreateEncoder(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
                              std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layoutString)
@@ -513,7 +514,8 @@ void MethodAE::CreateEncoder(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Create a Decoder
+/// Create a Decoder based on the layout string received 
+/// from 
 template <typename Architecture_t, typename Layer_t>
 void MethodAE::CreateDecoder(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
                              std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layoutString)

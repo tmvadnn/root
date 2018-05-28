@@ -1,5 +1,5 @@
 // @(#)root/tmva/tmva/dnn:$Id$
-// Author: Vladimir Ilievski, Saurav Shekhar
+// Author: Vladimir Ilievski, Saurav Shekhar, Siddhartha Rao Kamalakara
 
 /**********************************************************************************
  * Project: TMVA - a Root-integrated toolkit for multivariate data analysis       *
@@ -13,6 +13,7 @@
  * Authors (alphabetical):                                                        *
  *      Vladimir Ilievski  <ilievski.vladimir@live.com> - CERN, Switzerland       *
  *      Saurav Shekhar     <sauravshekhar01@gmail.com> - ETH Zurich, Switzerland  *
+ *      Siddhartha Rao Kamalakara  <srk97c@gmail.com> - CERN, Switzerland         *
  *                                                                                *
  * Copyright (c) 2005-2015:                                                       *
  *      CERN, Switzerland                                                         *
@@ -32,7 +33,7 @@
 //                                                                      //
 // MethodAE                                                             //
 //                                                                      //
-// Method class for all Deep Learning Networks                          //
+// Method class for creating Auto Encoders                              //
 //                                                                      //
 //////////////////////////////////////////////////////////////////////////
 
