@@ -98,6 +98,7 @@ namespace TMVA {
          kPlugins        ,
          kCategory       ,
          kDNN            ,
+         kGAN		 ,
          kDL             ,
          kPyRandomForest ,
          kPyAdaBoost     ,

@@ -121,6 +121,7 @@ int TMVAClassification( TString myMethodList = "" )
    Use["TMlpANN"]         = 0; // ROOT's own ANN
    Use["DNN_GPU"]         = 0; // CUDA-accelerated DNN training.
    Use["DNN_CPU"]         = 0; // Multi-core accelerated DNN.
+   Use["GAN"]		  = 0; // Generative Adversarial Networks
    //
    // Support Vector Machine
    Use["SVM"]             = 1;
@@ -472,6 +473,51 @@ int TMVAClassification( TString myMethodList = "" )
          TString cpuOptions = dnnOptions + ":Architecture=CPU";
          factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN_CPU", cpuOptions);
       }
+   }
+
+   if(Use["GAN"]) {
+      //General Layout
+      TString layoutString ("Generator:TANH|128,TANH|128,TANH|128,LINEAR||"
+                            "Discriminator:TANH|128,TANH|128,TANH|128,LINEAR");
+
+      // Training strategies.
+      TString training0("LearningRate=1e-1,Momentum=0.9,Repetitions=1,"
+                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
+                        "WeightDecay=1e-4,Regularization=L2,"
+                        "DropConfig=0.0+0.5+0.5+0.5, Multithreading=True||"
+ 			"LearningRate=1e-1,Momentum=0.9,Repetitions=1,"
+                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
+                        "WeightDecay=1e-4,Regularization=L2,"
+                        "DropConfig=0.0+0.5+0.5+0.5, Multithreading=True");
+      TString training1("LearningRate=1e-2,Momentum=0.9,Repetitions=1,"
+                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
+                        "WeightDecay=1e-4,Regularization=L2,"
+                        "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True||"
+			"LearningRate=1e-2,Momentum=0.9,Repetitions=1,"
+                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
+                        "WeightDecay=1e-4,Regularization=L2,"
+                        "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True|");
+      TString training2("LearningRate=1e-3,Momentum=0.0,Repetitions=1,"
+                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
+                        "WeightDecay=1e-4,Regularization=L2,"
+                        "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True||"
+			"LearningRate=1e-3,Momentum=0.0,Repetitions=1,"
+                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
+                        "WeightDecay=1e-4,Regularization=L2,"
+                        "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True");
+      TString trainingStrategyString ("TrainingStrategy=");
+      trainingStrategyString += training0 + "|" + training1 + "|" + training2;
+
+      // General Options.
+      TString ganOptions ("!H:V:ErrorStrategy=CROSSENTROPY:VarTransform=N:"
+                          "WeightInitialization=XAVIERUNIFORM||"
+			  "!H:V:ErrorStrategy=CROSSENTROPY:VarTransform=N:"
+                          "WeightInitialization=XAVIERUNIFORM");
+      ganOptions.Append (":"); ganOptions.Append (layoutString);
+      ganOptions.Append (":"); ganOptions.Append (trainingStrategyString);
+
+      TString cpuOptions = ganOptions + ":Architecture=CPU";
+      factory->BookMethod(dataloader, TMVA::Types::kGAN, "GAN", cpuOptions);
    }
 
    // CF(Clermont-Ferrand)ANN

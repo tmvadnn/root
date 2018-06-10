@@ -4,11 +4,11 @@
 /**********************************************************************************
  * Project: TMVA - a Root-integrated toolkit for multivariate data analysis       *
  * Package: TMVA                                                                  *
- * Class  : MethodDL                                                              *
+ * Class  : MethodGAN                                                             *
  * Web    : http://tmva.sourceforge.net                                           *
  *                                                                                *
  * Description:                                                                   *
- *      Deep Neural Network Method                                                *
+ *      Generative Adversarial Networks                                           *
  *                                                                                *
  * Authors (alphabetical):                                                        *
  *      Vladimir Ilievski  <ilievski.vladimir@live.com> - CERN, Switzerland       *
@@ -25,20 +25,20 @@
  * (http://tmva.sourceforge.net/LICENSE)                                          *
  **********************************************************************************/
 
-#ifndef ROOT_TMVA_MethodDL
-#define ROOT_TMVA_MethodDL
+#ifndef ROOT_TMVA_MethodGAN
+#define ROOT_TMVA_MethodGAN
 
 //////////////////////////////////////////////////////////////////////////
 //                                                                      //
-// MethodDL                                                             //
+// MethodGAN                                                            //
 //                                                                      //
-// Method class for all Deep Learning Networks                          //
+// Method class for all Generative Adversarial Networks                 //
 //                                                                      //
 //////////////////////////////////////////////////////////////////////////
 
 #include "TString.h"
 
-#include "TMVA/MethodBase.h"
+#include "TMVA/MethodDL.h"
 #include "TMVA/Types.h"
 
 #include "TMVA/DNN/Architectures/Reference.h"
@@ -59,23 +59,32 @@
 namespace TMVA {
 
 /*! All of the options that can be specified in the training string */
-struct TTrainingSettings {
-   size_t batchSize;
-   size_t testInterval;
-   size_t convergenceSteps;
-   size_t maxEpochs; 
-   DNN::ERegularization regularization;
-   Double_t learningRate;
-   Double_t momentum;
-   Double_t weightDecay;
-   std::vector<Double_t> dropoutProbabilities;
-   bool multithreading;
+struct GANTTrainingSettings {
+   size_t generatorBatchSize;
+   size_t generatorTestInterval;
+   size_t generatorConvergenceSteps;
+   size_t generatorMaxEpochs; 
+   DNN::ERegularization generatorRegularization;
+   Double_t generatorLearningRate;
+   Double_t generatorMomentum;
+   Double_t generatorWeightDecay;
+   std::vector<Double_t> generatorDropoutProbabilities;
+   bool generatorMultithreading; 
+
+   size_t discriminatorBatchSize;
+   size_t discriminatorTestInterval;
+   size_t discriminatorConvergenceSteps;
+   size_t discriminatorMaxEpochs; 
+   DNN::ERegularization discriminatorRegularization;
+   Double_t discriminatorLearningRate;
+   Double_t discriminatorMomentum;
+   Double_t discriminatorWeightDecay;
+   std::vector<Double_t> discriminatorDropoutProbabilities;
+   bool discriminatorMultithreading;
+
 };
 
-class MethodDL : public MethodBase {
-
-public:
-   friend class MethodGAN;
+class MethodGAN : public MethodBase {
 
 private:
    // Key-Value vector type, contining the values for the training options
@@ -86,7 +95,7 @@ private:
    using ArchitectureImpl_t = TMVA::DNN::TReference<Double_t>;
 #endif  
    using DeepNetImpl_t = TMVA::DNN::TDeepNet<ArchitectureImpl_t>;
-   std::unique_ptr<DeepNetImpl_t> fNet;
+   std::unique_ptr<DeepNetImpl_t> generatorFNet, discriminatorFNet;
 
    /*! The option handling methods */
    void DeclareOptions();
@@ -104,41 +113,24 @@ private:
     *  a reference in the function. */
    template <typename Architecture_t, typename Layer_t>
    void CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                      std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, std::unique_ptr<DeepNetImpl_t> &modelNet);
+                      std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, std::unique_ptr<DeepNetImpl_t> &fNet);
 
-   template <typename Architecture_t, typename Layer_t>
-   static void ParseDenseLayer(size_t inputSize, DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                        std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layerString, TString delim, std::unique_ptr<DeepNetImpl_t> &modelNet);
+   size_t fGeneratorInputDepth;  ///< The depth of the input of the generator.
+   size_t fGeneratorInputHeight; ///< The height of the input of the generator.
+   size_t fGeneratorInputWidth;  ///< The width of the input of the generator.
 
-   template <typename Architecture_t, typename Layer_t>
-   static void ParseConvLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                       std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layerString, TString delim, std::unique_ptr<DeepNetImpl_t> &modelNet);
+   size_t fGeneratorBatchDepth;  ///< The depth of the batch used to train the deep net for generator.
+   size_t fGeneratorBatchHeight; ///< The height of the batch used to train the deep net for generator.
+   size_t fGeneratorBatchWidth;  ///< The width of the batch used to train the deep net for generator.
 
-   template <typename Architecture_t, typename Layer_t>
-   static void ParseMaxPoolLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                          std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layerString,
-                          TString delim, std::unique_ptr<DeepNetImpl_t> &modelNet);
+   size_t fDiscriminatorInputDepth;  ///< The depth of the input of the discriminator.
+   size_t fDiscriminatorInputHeight; ///< The height of the input of the discriminator.
+   size_t fDiscriminatorInputWidth;  ///< The width of the input of the discriminator.
 
-   template <typename Architecture_t, typename Layer_t>
-   static void ParseReshapeLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                          std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layerString,
-                          TString delim, std::unique_ptr<DeepNetImpl_t> &modelNet);
+   size_t fDiscriminatorBatchDepth;  ///< The depth of the batch used to train the deep net for discriminator.
+   size_t fDiscriminatorBatchHeight; ///< The height of the batch used to train the deep net for discriminator.
+   size_t fDiscriminatorBatchWidth;  ///< The width of the batch used to train the deep net for discriminator.
 
-   template <typename Architecture_t, typename Layer_t>
-   static void ParseRnnLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                      std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layerString, TString delim, std::unique_ptr<DeepNetImpl_t> &modelNet);
-
-   template <typename Architecture_t, typename Layer_t>
-   static void ParseLstmLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                       std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layerString, TString delim);
-
-   size_t fInputDepth;  ///< The depth of the input.
-   size_t fInputHeight; ///< The height of the input.
-   size_t fInputWidth;  ///< The width of the input.
-
-   size_t fBatchDepth;  ///< The depth of the batch used to train the deep net.
-   size_t fBatchHeight; ///< The height of the batch used to train the deep net.
-   size_t fBatchWidth;  ///< The width of the batch used to train the deep net.
 
    DNN::EInitialization fWeightInitialization; ///< The initialization method
    DNN::EOutputFunction fOutputFunction;       ///< The output function for making the predictions
@@ -154,9 +146,9 @@ private:
    bool fResume;
 
    KeyValueVector_t fSettings;                       ///< Map for the training strategy
-   std::vector<TTrainingSettings> fTrainingSettings; ///< The vector defining each training strategy
+   std::vector<GANTTrainingSettings> fTrainingSettings; ///< The vector defining each training strategy
 
-   ClassDef(MethodDL, 0);
+   ClassDef(MethodGAN, 0);
 
 protected:
    // provide a help message
@@ -164,13 +156,13 @@ protected:
 
 public:
    /*! Constructor */
-   MethodDL(const TString &jobName, const TString &methodTitle, DataSetInfo &theData, const TString &theOption);
+   MethodGAN(const TString &jobName, const TString &methodTitle, DataSetInfo &theData, const TString &theOption);
 
    /*! Constructor */
-   MethodDL(DataSetInfo &theData, const TString &theWeightFile);
+   MethodGAN(DataSetInfo &theData, const TString &theWeightFile);
 
    /*! Virtual Destructor */
-   virtual ~MethodDL();
+   virtual ~MethodGAN();
 
    /*! Function for parsing the training settings, provided as a string
     *  in a key-value form.  */
@@ -181,7 +173,8 @@ public:
 
    /*! Methods for training the deep learning network */
    void Train();
-
+   
+   //TODO: Check what this method stands for (Do we need to override it?)
    Double_t GetMvaValue(Double_t *err = 0, Double_t *errUpper = 0);
 
    /*! Methods for writing and reading weights */
@@ -194,15 +187,21 @@ public:
    const Ranking *CreateRanking();
 
    /* Getters */
-   size_t GetInputDepth() const { return fInputDepth; }
-   size_t GetInputHeight() const { return fInputHeight; }
-   size_t GetInputWidth() const { return fInputWidth; }
+   size_t GetGeneratorInputDepth() const { return fGeneratorInputDepth; }
+   size_t GetGeneratorInputHeight() const { return fGeneratorInputHeight; }
+   size_t GetGeneratorInputWidth() const { return fGeneratorInputWidth; }
 
-   size_t GetBatchDepth() const { return fBatchDepth; }
-   size_t GetBatchHeight() const { return fBatchHeight; }
-   size_t GetBatchWidth() const { return fBatchWidth; }
+   size_t GetGeneratorBatchDepth() const { return fGeneratorBatchDepth; }
+   size_t GetGeneratorBatchHeight() const { return fGeneratorBatchHeight; }
+   size_t GetGeneratorBatchWidth() const { return fGeneratorBatchWidth; }
 
-   const DeepNetImpl_t & GetDeepNet() const { return *fNet; }
+   size_t GetDiscriminatorInputDepth() const { return fDiscriminatorInputDepth; }
+   size_t GetDiscriminatorInputHeight() const { return fDiscriminatorInputHeight; }
+   size_t GetDiscriminatorInputWidth() const { return fDiscriminatorInputWidth; }
+
+   size_t GetDiscriminatorBatchDepth() const { return fDiscriminatorBatchDepth; }
+   size_t GetDiscriminatorBatchHeight() const { return fDiscriminatorBatchHeight; }
+   size_t GetDiscriminatorBatchWidth() const { return fDiscriminatorBatchWidth; }
 
    DNN::EInitialization GetWeightInitialization() const { return fWeightInitialization; }
    DNN::EOutputFunction GetOutputFunction() const { return fOutputFunction; }
@@ -216,19 +215,27 @@ public:
    TString GetWeightInitializationString() const { return fWeightInitializationString; }
    TString GetArchitectureString() const { return fArchitectureString; }
 
-   const std::vector<TTrainingSettings> &GetTrainingSettings() const { return fTrainingSettings; }
-   std::vector<TTrainingSettings> &GetTrainingSettings() { return fTrainingSettings; }
+   const std::vector<GANTTrainingSettings> &GetTrainingSettings() const { return fTrainingSettings; }
+   std::vector<GANTTrainingSettings> &GetTrainingSettings() { return fTrainingSettings; }
    const KeyValueVector_t &GetKeyValueSettings() const { return fSettings; }
    KeyValueVector_t &GetKeyValueSettings() { return fSettings; }
 
    /** Setters */
-   void SetInputDepth(size_t inputDepth) { fInputDepth = inputDepth; }
-   void SetInputHeight(size_t inputHeight) { fInputHeight = inputHeight; }
-   void SetInputWidth(size_t inputWidth) { fInputWidth = inputWidth; }
+   void SetGeneratorInputDepth(size_t inputDepth) { fGeneratorInputDepth = inputDepth; }
+   void SetGeneratorInputHeight(size_t inputHeight) { fGeneratorInputHeight = inputHeight; }
+   void SetGeneratorInputWidth(size_t inputWidth) { fGeneratorInputWidth = inputWidth; }
 
-   void SetBatchDepth(size_t batchDepth) { fBatchDepth = batchDepth; }
-   void SetBatchHeight(size_t batchHeight) { fBatchHeight = batchHeight; }
-   void SetBatchWidth(size_t batchWidth) { fBatchWidth = batchWidth; }
+   void SetGeneratorBatchDepth(size_t batchDepth) { fGeneratorBatchDepth = batchDepth; }
+   void SetGeneratorBatchHeight(size_t batchHeight) { fGeneratorBatchHeight = batchHeight; }
+   void SetGeneratorBatchWidth(size_t batchWidth) { fGeneratorBatchWidth = batchWidth; }
+
+   void SetDiscriminatorInputDepth(size_t inputDepth) { fDiscriminatorInputDepth = inputDepth; }
+   void SetDiscriminatorInputHeight(size_t inputHeight) { fDiscriminatorInputHeight = inputHeight; }
+   void SetDiscriminatorInputWidth(size_t inputWidth) { fDiscriminatorInputWidth = inputWidth; }
+
+   void SetDiscriminatorBatchDepth(size_t batchDepth) { fDiscriminatorBatchDepth = batchDepth; }
+   void SetDiscriminatorBatchHeight(size_t batchHeight) { fDiscriminatorBatchHeight = batchHeight; }
+   void SetDiscriminatorBatchWidth(size_t batchWidth) { fDiscriminatorBatchWidth = batchWidth; }
 
    void SetWeightInitialization(DNN::EInitialization weightInitialization)
    {
