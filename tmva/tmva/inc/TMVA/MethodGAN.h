@@ -104,6 +104,7 @@ private:
    void Init();
 
    // Function to parse the layout of the input
+   void ParseNetworkLayout();
    void ParseInputLayout();
    void ParseBatchLayout();
 
@@ -113,7 +114,7 @@ private:
     *  a reference in the function. */
    template <typename Architecture_t, typename Layer_t>
    void CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                      std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, std::unique_ptr<DeepNetImpl_t> &fNet);
+                      std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, std::unique_ptr<DeepNetImpl_t> &fNet, TString layoutString);
 
    size_t fGeneratorInputDepth;  ///< The depth of the input of the generator.
    size_t fGeneratorInputHeight; ///< The height of the input of the generator.
@@ -143,6 +144,8 @@ private:
    TString fTrainingStrategyString;     ///< The string defining the training strategy
    TString fWeightInitializationString; ///< The string defining the weight initialization method
    TString fArchitectureString;         ///< The string defining the architecure: CPU or GPU
+   TString fGeneratorNetworkLayoutString;      ///< The string defining the network layout for generator
+   TString fDiscriminatorNetworkLayoutString;  ///< The string defining the network layout for discriminator
    bool fResume;
 
    KeyValueVector_t fSettings;                       ///< Map for the training strategy
@@ -215,6 +218,9 @@ public:
    TString GetWeightInitializationString() const { return fWeightInitializationString; }
    TString GetArchitectureString() const { return fArchitectureString; }
 
+   TString GetGeneratorNetworkLayoutString() const {return fGeneratorNetworkLayoutString; }
+   TString GetDiscriminatorNetworkLayoutString() const {return fDiscriminatorNetworkLayoutString; }
+
    const std::vector<GANTTrainingSettings> &GetTrainingSettings() const { return fTrainingSettings; }
    std::vector<GANTTrainingSettings> &GetTrainingSettings() { return fTrainingSettings; }
    const KeyValueVector_t &GetKeyValueSettings() const { return fSettings; }
@@ -250,6 +256,11 @@ public:
    }
    void SetArchitectureString(TString architectureString) { fArchitectureString = architectureString; }
    void SetLayoutString(TString layoutString) { fLayoutString = layoutString; }
+
+   void SetGeneratorNetworkLayout(TString networkLayoutString) { fGeneratorNetworkLayoutString = networkLayoutString; }
+
+   void SetDiscriminatorNetworkLayout(TString networkLayoutString) { fDiscriminatorNetworkLayoutString = networkLayoutString; }
+
 };
 
 } // namespace TMVA

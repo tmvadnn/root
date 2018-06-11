@@ -164,6 +164,7 @@ int TMVAClassification( TString myMethodList = "" )
 
    // Read training and test data
    // (it is also possible to use ASCII format as input -> see TMVA Users Guide)
+   std::cout<<"Before preparing training data"<<std::endl;
    TFile *input(0);
    TString fname = "./tmva_class_example.root";
    if (!gSystem->AccessPathName( fname )) {
@@ -178,6 +179,7 @@ int TMVAClassification( TString myMethodList = "" )
       exit(1);
    }
    std::cout << "--- TMVAClassification       : Using input file: " << input->GetName() << std::endl;
+   std::cout << "After opening input data file" << std::endl;
 
    // Register the training and test trees
 
@@ -476,45 +478,59 @@ int TMVAClassification( TString myMethodList = "" )
    }
 
    if(Use["GAN"]) {
+      std::cout<<"In GAN condition inside the TMVAClassification file"<<std::endl;
+
+      // Input Layout
+      TString inputLayoutString("InputLayout=1|1|4##1|1|4");
+
+      // Batch Layout
+      TString batchLayoutString("BatchLayout=256|1|4##256|1|4");
+
       //General Layout
-      TString layoutString ("Generator:TANH|128,TANH|128,TANH|128,LINEAR||"
-                            "Discriminator:TANH|128,TANH|128,TANH|128,LINEAR");
+      TString layoutString ("Layout=RESHAPE|1|1|4|FLAT,DENSE|128|TANH,DENSE|128|TANH,DENSE|128|"
+ "TANH,DENSE|1|LINEAR##RESHAPE|1|1|4|FLAT,DENSE|128|TANH,DENSE|128|TANH,DENSE|128|TANH,DENSE|1|LINEAR");
 
       // Training strategies.
-      TString training0("LearningRate=1e-1,Momentum=0.9,Repetitions=1,"
-                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
-                        "WeightDecay=1e-4,Regularization=L2,"
-                        "DropConfig=0.0+0.5+0.5+0.5, Multithreading=True||"
- 			"LearningRate=1e-1,Momentum=0.9,Repetitions=1,"
-                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
-                        "WeightDecay=1e-4,Regularization=L2,"
-                        "DropConfig=0.0+0.5+0.5+0.5, Multithreading=True");
-      TString training1("LearningRate=1e-2,Momentum=0.9,Repetitions=1,"
-                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
-                        "WeightDecay=1e-4,Regularization=L2,"
-                        "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True||"
-			"LearningRate=1e-2,Momentum=0.9,Repetitions=1,"
-                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
-                        "WeightDecay=1e-4,Regularization=L2,"
-                        "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True|");
-      TString training2("LearningRate=1e-3,Momentum=0.0,Repetitions=1,"
-                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
-                        "WeightDecay=1e-4,Regularization=L2,"
-                        "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True||"
-			"LearningRate=1e-3,Momentum=0.0,Repetitions=1,"
-                        "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
-                        "WeightDecay=1e-4,Regularization=L2,"
+      TString training0("GeneratorLearningRate=1e-1,GeneratorMomentum=0.9,GeneratorRepetitions=1,"
+                        "GeneratorConvergenceSteps=20,GeneratorBatchSize=256,GeneratorTestRepetitions=10,"
+                        "GeneratorWeightDecay=1e-4,GeneratorRegularization=L2,"
+                        "GeneratorDropConfig=0.0+0.5+0.5+0.5, GeneratorMultithreading=True,"
+ 			"DiscriminatorLearningRate=1e-1,DiscriminatorMomentum=0.9,DiscriminatorRepetitions=1,"
+                        "DiscriminatorConvergenceSteps=20,DiscriminatorBatchSize=256,DiscriminatorTestRepetitions=10,"
+                        "DiscriminatorWeightDecay=1e-4,DiscriminatorRegularization=L2,"
+                        "DiscriminatorDropConfig=0.0+0.5+0.5+0.5, DiscriminatorMultithreading=True");
+      TString training1("GeneratorLearningRate=1e-2,GeneratorMomentum=0.9,GeneratorRepetitions=1,"
+                        "GeneratorConvergenceSteps=20,GeneratorBatchSize=256,GeneratorTestRepetitions=10,"
+                        "GeneratorWeightDecay=1e-4,GeneratorRegularization=L2,"
+                        "GeneratorDropConfig=0.0+0.0+0.0+0.0, GeneratorMultithreading=True,"
+			"DiscriminatorLearningRate=1e-2,DiscriminatorMomentum=0.9,DiscriminatorRepetitions=1,"
+                        "DiscriminatorConvergenceSteps=20,DiscriminatorBatchSize=256,DiscriminatorTestRepetitions=10,"
+                        "DiscriminatorWeightDecay=1e-4,DiscriminatorRegularization=L2,"
                         "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True");
+      TString training2("GeneratorLearningRate=1e-3,GeneratorMomentum=0.0,GeneratorRepetitions=1,"
+                        "GeneratorConvergenceSteps=20,GeneratorBatchSize=256,GeneratorTestRepetitions=10,"
+                        "GeneratorWeightDecay=1e-4,GeneratorRegularization=L2,"
+                        "GeneratorDropConfig=0.0+0.0+0.0+0.0, GeneratorMultithreading=True,"
+			"DiscriminatorLearningRate=1e-3,DiscriminatorMomentum=0.0,DiscriminatorRepetitions=1,"
+                        "DiscriminatorConvergenceSteps=20, DiscriminatorBatchSize=256, DiscriminatorTestRepetitions=10,"
+                        "DiscriminatorWeightDecay=1e-4, DiscriminatorRegularization=L2,"
+                        "DiscriminatorDropConfig=0.0+0.0+0.0+0.0, DiscriminatorMultithreading=True");
       TString trainingStrategyString ("TrainingStrategy=");
       trainingStrategyString += training0 + "|" + training1 + "|" + training2;
 
       // General Options.
       TString ganOptions ("!H:V:ErrorStrategy=CROSSENTROPY:VarTransform=N:"
-                          "WeightInitialization=XAVIERUNIFORM||"
-			  "!H:V:ErrorStrategy=CROSSENTROPY:VarTransform=N:"
                           "WeightInitialization=XAVIERUNIFORM");
-      ganOptions.Append (":"); ganOptions.Append (layoutString);
-      ganOptions.Append (":"); ganOptions.Append (trainingStrategyString);
+
+      ganOptions.Append(":");
+      ganOptions.Append(inputLayoutString);
+
+      ganOptions.Append(":");
+      ganOptions.Append(batchLayoutString);
+      ganOptions.Append (":"); 
+      ganOptions.Append (layoutString);
+      ganOptions.Append (":"); 
+      ganOptions.Append (trainingStrategyString);
 
       TString cpuOptions = ganOptions + ":Architecture=CPU";
       factory->BookMethod(dataloader, TMVA::Types::kGAN, "GAN", cpuOptions);

@@ -152,11 +152,11 @@ std::vector<double> getValueTmp(const std::map<TString, TString> &keyValueMap, T
 void MethodGAN::DeclareOptions()
 {
    // Set default values for all option strings
-   DeclareOptionRef(fInputLayoutString = "0|0|0", "InputLayout", "The Layout of the input");
+   DeclareOptionRef(fInputLayoutString = "0|0|0##0|0|0", "InputLayout", "The Layout of the input");
 
-   DeclareOptionRef(fBatchLayoutString = "0|0|0", "BatchLayout", "The Layout of the batch");
+   DeclareOptionRef(fBatchLayoutString = "0|0|0##0|0|0", "BatchLayout", "The Layout of the batch");
 
-   DeclareOptionRef(fLayoutString = "DENSE|(N+100)*2|SOFTSIGN,DENSE|0|LINEAR", "Layout", "Layout of the network.");
+   DeclareOptionRef(fLayoutString = "DENSE|(N+100)*2|SOFTSIGN,DENSE|0|LINEAR##DENSE|(N+100)*2|SOFTSIGN,DENSE|0|LINEAR", "Layout", "Layout of the network.");
 
    DeclareOptionRef(fErrorStrategy = "CROSSENTROPY", "ErrorStrategy", "Loss function: Mean squared error (regression)"
                                                                       " or cross entropy (binary classification).");
@@ -174,27 +174,51 @@ void MethodGAN::DeclareOptions()
    AddPreDefVal(TString("GPU"));
    AddPreDefVal(TString("OPENCL"));
 
-   DeclareOptionRef(fTrainingStrategyString = "LearningRate=1e-1,"
-                                              "Momentum=0.3,"
-                                              "Repetitions=3,"
-                                              "ConvergenceSteps=50,"
-                                              "BatchSize=30,"
-                                              "TestRepetitions=7,"
-                                              "WeightDecay=0.0,"
-                                              "Renormalize=L2,"
-                                              "DropConfig=0.0,"
-                                              "DropRepetitions=5|LearningRate=1e-4,"
-                                              "Momentum=0.3,"
-                                              "Repetitions=3,"
-                                              "ConvergenceSteps=50,"
-                                              "MaxEpochs=2000,"
-                                              "BatchSize=20,"
-                                              "TestRepetitions=7,"
-                                              "WeightDecay=0.001,"
-                                              "Renormalize=L2,"
-                                              "DropConfig=0.0+0.5+0.5,"
-                                              "DropRepetitions=5,"
-                                              "Multithreading=True",
+   DeclareOptionRef(fTrainingStrategyString = "GeneratorLearningRate=1e-1,"
+                                              "GeneratorMomentum=0.3,"
+                                              "GeneratorRepetitions=3,"
+                                              "GeneratorConvergenceSteps=50,"
+                                              "GeneratorBatchSize=30,"
+                                              "GeneratorTestRepetitions=7,"
+                                              "GeneratorWeightDecay=0.0,"
+                                              "GeneratorRenormalize=L2,"
+                                              "GeneratorDropConfig=0.0,"
+                                              "GeneratorDropRepetitions=5,"
+                                              "DiscriminatorLearningRate=1e-1,"
+                                              "DiscriminatorMomentum=0.3,"
+                                              "DiscriminatorRepetitions=3,"
+                                              "DiscriminatorConvergenceSteps=50,"
+                                              "DiscriminatorBatchSize=30,"
+                                              "DiscriminatorTestRepetitions=7,"
+                                              "DiscriminatorWeightDecay=0.0,"
+                                              "DiscriminatorRenormalize=L2,"
+                                              "DiscriminatorDropConfig=0.0,"
+                                              "DiscriminatorDropRepetitions=5|"
+                                              "GeneratorLearningRate=1e-4,"
+                                              "GeneratorMomentum=0.3,"
+                                              "GeneratorRepetitions=3,"
+                                              "GeneratorConvergenceSteps=50,"
+                                              "GeneratorMaxEpochs=2000,"
+                                              "GeneratorBatchSize=20,"
+                                              "GeneratorTestRepetitions=7,"
+                                              "GeneratorWeightDecay=0.001,"
+                                              "GeneratorRenormalize=L2,"
+                                              "GeneratorDropConfig=0.0+0.5+0.5,"
+                                              "GeneratorDropRepetitions=5,"
+                                              "GeneratorMultithreading=True,"
+					      "DiscriminatorLearningRate=1e-4,"
+                                              "DiscriminatorMomentum=0.3,"
+                                              "DiscriminatorRepetitions=3,"
+                                              "DiscriminatorConvergenceSteps=50,"
+                                              "DiscriminatorMaxEpochs=2000,"
+                                              "DiscriminatorBatchSize=20,"
+                                              "DiscriminatorTestRepetitions=7,"
+                                              "DiscriminatorWeightDecay=0.001,"
+                                              "DiscriminatorRenormalize=L2,"
+                                              "DiscriminatorDropConfig=0.0+0.5+0.5,"
+                                              "DiscriminatorDropRepetitions=5,"
+                                              "DiscriminatorMultithreading=True",
+					       
                            "TrainingStrategy", "Defines the training strategies.");
 }  
 
@@ -261,14 +285,18 @@ void MethodGAN::ProcessOptions()
    // Input Layout
    ParseInputLayout();
    ParseBatchLayout();
+   ParseNetworkLayout();
 
    // Loss function and output.
    fOutputFunction = EOutputFunction::kSigmoid;
    if (fAnalysisType == Types::kClassification) {
       if (fErrorStrategy == "SUMOFSQUARES") {
+         std::cout << "Error Strategy String" << fErrorStrategy << std::endl;
          fLossFunction = ELossFunction::kMeanSquaredError;
+         
       }
       if (fErrorStrategy == "CROSSENTROPY") {
+         std::cout << "Error Strategy String" << fErrorStrategy << std::endl;
          fLossFunction = ELossFunction::kCrossEntropy;
       }
       fOutputFunction = EOutputFunction::kSigmoid;
@@ -341,7 +369,7 @@ void MethodGAN::ProcessOptions()
       }
 
       settings.discriminatorConvergenceSteps = getValueTmp(block, "DiscriminatorConvergenceSteps", 100);
-      settings.discriminatorBatchSize = getValueTmp(block, "DiscriminatorBatchSize", 30);
+      settings.discriminatorBatchSize = getValueTmp(block, "DiscriminatorBatchSize", 256);
       settings.discriminatorMaxEpochs = getValueTmp(block, "DiscriminatorMaxEpochs", 2000);
       settings.discriminatorTestInterval = getValueTmp(block, "DiscriminatorTestRepetitions", 7);
       settings.discriminatorWeightDecay = getValueTmp(block, "DiscriminatorWeightDecay", 0.0);
@@ -377,11 +405,42 @@ void MethodGAN::Init()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+/// Parse the model layout
+void MethodGAN::ParseNetworkLayout()
+{
+   // Define the delimiter for separation of Generator and Discriminator Strings
+   const TString delim_model("##");
+   const TString delim("|");
+
+   // Get the input layout string
+   TString networkLayoutString = this->GetLayoutString();
+
+   //Split string into Generator and Discriminator layout strings
+   TObjArray *modelStrings = networkLayoutString.Tokenize(delim_model);
+   TIter nextModelDim(modelStrings);
+   TObjString *modelDimString = (TObjString *)nextModelDim();
+   int idxTokenModel = 0;
+
+   for(; modelDimString != nullptr; modelDimString = (TObjString *)nextModelDim())
+   {
+      TString strNetworkLayout(modelDimString->GetString());
+
+      if(idxTokenModel == 0)
+         this->SetGeneratorNetworkLayout(strNetworkLayout);
+      else if(idxTokenModel == 1)
+         this->SetDiscriminatorNetworkLayout(strNetworkLayout);
+
+      ++idxTokenModel;
+   }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 /// Parse the input layout
 void MethodGAN::ParseInputLayout()
 {
    // Define the delimiter for separation of Generator and Discriminator Strings
-   const TString delim_model("||");
+   const TString delim_model("##");
    const TString delim("|");
 
    // Get the input layout string
@@ -400,7 +459,7 @@ void MethodGAN::ParseInputLayout()
    for(; modelDimString != nullptr; modelDimString = (TObjString *)nextModelDim())
    {
       // Split the input layout string
-      TObjArray *inputDimStrings = inputLayoutString.Tokenize(delim);
+      TObjArray *inputDimStrings = modelDimString->GetString().Tokenize(delim);
       TIter nextInputDim(inputDimStrings);
       TObjString *inputDimString = (TObjString *)nextInputDim();
       int idxToken = 0;
@@ -411,33 +470,40 @@ void MethodGAN::ParseInputLayout()
          {
             TString strDepth(inputDimString->GetString());
             depth = (size_t)strDepth.Atoi();
-         } break;
+
+            if(idxTokenModel == 0)
+               this->SetGeneratorInputDepth(depth);
+            else if(idxTokenModel == 1)
+               this->SetDiscriminatorInputDepth(depth);
+	
+	    break;
+         } 
          case 1: // input height
          {
             TString strHeight(inputDimString->GetString());
             height = (size_t)strHeight.Atoi();
-         } break;
+
+            if(idxTokenModel == 0)
+               this->SetGeneratorInputHeight(height);
+            else if(idxTokenModel == 1)
+               this->SetDiscriminatorInputHeight(height);
+
+            break;
+         }
          case 2: // input width
          {
             TString strWidth(inputDimString->GetString());
             width = (size_t)strWidth.Atoi();
-         } break;
+
+            if(idxTokenModel == 0)
+               this->SetGeneratorInputWidth(width);
+            else if(idxTokenModel == 1)
+               this->SetDiscriminatorInputWidth(width);
+
+            break;
+         }
          }
          ++idxToken;
-	 
-         if(idxTokenModel == 0)
-	 {
-            this->SetGeneratorInputDepth(depth);
-            this->SetGeneratorInputHeight(height);
-            this->SetGeneratorInputWidth(width);
-         }
-
-         else if(idxTokenModel == 1)
-         {
-            this->SetDiscriminatorInputDepth(depth);
-            this->SetDiscriminatorInputHeight(height);
-            this->SetDiscriminatorInputWidth(width);
-         }
       }
    
    ++idxTokenModel;
@@ -450,7 +516,7 @@ void MethodGAN::ParseInputLayout()
 void MethodGAN::ParseBatchLayout()
 {
    // Define the delimiter
-   const TString delim_model("||");
+   const TString delim_model("##");
    const TString delim("|");
 
    // Get the input layout string
@@ -460,17 +526,16 @@ void MethodGAN::ParseBatchLayout()
    size_t height = 0;
    size_t width = 0;
 
-   
    // Split the input layout string into Generator and Discriminator Strings
    TObjArray *modelDimStrings = batchLayoutString.Tokenize(delim_model);
    TIter nextModelDim(modelDimStrings);
    TObjString *modelDimString = (TObjString *)nextModelDim();
-   int idxTokenModel = 0;
+   int idxTokenModel = 0; 
 
    for(; modelDimString != nullptr; modelDimString = (TObjString *)nextModelDim())
    {
 
-      TObjArray *batchDimStrings = batchLayoutString.Tokenize(delim);
+      TObjArray *batchDimStrings = modelDimString->GetString().Tokenize(delim);
       TIter nextBatchDim(batchDimStrings);
       TObjString *batchDimString = (TObjString *)nextBatchDim();
       int idxToken = 0;
@@ -481,35 +546,41 @@ void MethodGAN::ParseBatchLayout()
          {
             TString strDepth(batchDimString->GetString());
             depth = (size_t)strDepth.Atoi();
-         } break;
+    
+            if(idxTokenModel == 0)
+               this->SetGeneratorBatchDepth(depth);
+            else if(idxTokenModel == 1)
+               this->SetDiscriminatorBatchDepth(depth);
+
+            break;
+         }
          case 1: // input height
          {
             TString strHeight(batchDimString->GetString());
             height = (size_t)strHeight.Atoi();
-         } break;
+
+            if(idxTokenModel == 0)
+               this->SetGeneratorBatchHeight(height);
+            else if(idxTokenModel == 1)
+               this->SetDiscriminatorBatchHeight(height);
+
+            break;
+         }
          case 2: // input width
          {
             TString strWidth(batchDimString->GetString());
             width = (size_t)strWidth.Atoi();
-         } break;
+
+            if(idxTokenModel == 0)
+               this->SetGeneratorBatchWidth(width);
+            else if(idxTokenModel == 1)
+               this->SetDiscriminatorBatchWidth(width);
+
+            break;
+         }
          }
       
          ++idxToken;
-         
-          if(idxTokenModel == 0)
-	 {
-            this->SetGeneratorBatchDepth(depth);
-            this->SetGeneratorBatchHeight(height);
-            this->SetGeneratorBatchWidth(width);
-         }
-
-         else if(idxTokenModel == 1)
-         {
-            this->SetDiscriminatorBatchDepth(depth);
-            this->SetDiscriminatorBatchHeight(height);
-            this->SetDiscriminatorBatchWidth(width);
-         }
-
       }
       ++idxTokenModel;
    }
@@ -520,20 +591,17 @@ void MethodGAN::ParseBatchLayout()
 /// Create a deep net based on the layout string
 template <typename Architecture_t, typename Layer_t>
 void MethodGAN::CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                             std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, std::unique_ptr<DeepNetImpl_t> &fNet)
+                             std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, std::unique_ptr<DeepNetImpl_t> &fNet, TString layoutString)
 {
 
    // Layer specification, layer details
    const TString layerDelimiter(",");
    const TString subDelimiter("|");
 
-   TString layoutString = this->GetLayoutString();
-
    // Split layers
    TObjArray *layerStrings = layoutString.Tokenize(layerDelimiter);
    TIter nextLayer(layerStrings);
    TObjString *layerString = (TObjString *)nextLayer();
-
 
    for (; layerString != nullptr; layerString = (TObjString *)nextLayer()) {
       // Split layer details
@@ -769,7 +837,6 @@ void MethodGAN::Train()
          return;
       }
 
-
       DeepNet_t generatorDeepNet(generatorBatchSize, generatorInputDepth, generatorInputHeight, generatorInputWidth, generatorBatchDepth, generatorBatchHeight, generatorBatchWidth, generatorJ, generatorI, generatorR, generatorWeightDecay);
 
       // create a copy of DeepNet for evaluating but with batch size = 1
@@ -784,15 +851,17 @@ void MethodGAN::Train()
          generatorNets.push_back(generatorDeepNet);
       }
 
+      TMVAInput_t generatorTrainingTuple = std::tie(GetEventCollection(Types::kTraining), DataInfo());
+
       // Add all appropriate layers to deepNet and copies to fNet
-      CreateDeepNet(generatorDeepNet, generatorNets, generatorFNet);
+      CreateDeepNet(generatorDeepNet, generatorNets, generatorFNet, this->GetGeneratorNetworkLayoutString());
 
       // print the created network
       std::cout << "***** Generator Deep Learning Network *****\n";
       generatorDeepNet.Print();
 
       // Loading the training and testing datasets
-      TMVAInput_t generatorTrainingTuple = std::tie(GetEventCollection(Types::kTraining), DataInfo());
+      //TMVAInput_t generatorTrainingTuple = std::tie(GetEventCollection(Types::kTraining), DataInfo());
       TensorDataLoader_t generatorTrainingData(generatorTrainingTuple, nTrainingSamples, generatorDeepNet.GetBatchSize(),
                                       generatorDeepNet.GetBatchDepth(), generatorDeepNet.GetBatchHeight(), generatorDeepNet.GetBatchWidth(),
                                       generatorDeepNet.GetOutputWidth(), nThreads);
@@ -884,7 +953,7 @@ void MethodGAN::Train()
             // copy configuration when reached a minimum error
             if (generatorTestError < genMinTestError ) {
                // Copy weights from deepNet to fNet
-               Log() << std::setw(10) << generatorStepCount << " Minimun Test error found - save the configuration " << Endl;
+               Log() << std::setw(10) << generatorStepCount << " Minimum Test error found - save the configuration " << Endl;
                for (size_t i = 0; i < generatorDeepNet.GetDepth(); ++i) {
                   const auto & generatorNLayer = generatorFNet->GetLayerAt(i); 
                   const auto & generatorDLayer = generatorDeepNet.GetLayerAt(i); 
@@ -993,7 +1062,7 @@ void MethodGAN::Train()
       }
 
       // Add all appropriate layers to deepNet and copies to fNet
-      CreateDeepNet(discriminatorDeepNet, discriminatorNets, discriminatorFNet);
+      CreateDeepNet(discriminatorDeepNet, discriminatorNets, discriminatorFNet, this->GetDiscriminatorNetworkLayoutString());
 
       // print the created network
       std::cout << "***** Generator Deep Learning Network *****\n";
@@ -1168,7 +1237,6 @@ Double_t MethodGAN::GetMvaValue(Double_t * /*errLower*/, Double_t * /*errUpper*/
    int batchHeight = generatorFNet->GetBatchHeight();
    int nb = generatorFNet->GetBatchSize();
    int noutput = generatorFNet->GetOutputWidth();
-
    // note that batch size whould be equal to 1
    R__ASSERT(nb == 1); 
 
