@@ -151,5 +151,47 @@ void TReference<AReal>::SoftmaxCrossEntropyGradients(TMatrixT<AReal> &dY, const 
    }
 }
 
+//______________________________________________________________________________
+template <typename AReal>
+AReal TReference<AReal>::KLDivergence(const TMatrixT<AReal> &Mean, const TMatrixT<AReal> &StandardDeviation,
+                                      const TMatrixT<AReal> &weights)
+{
+   size_t m,n;
+   m = Mean.GetNrows();
+   n = Mean.GetNcols();
+
+   AReal result = 0.0;
+
+   for(size_t i=0; i<m; i++){
+      for(size_t j=0; j<n; j++){
+         AReal sum = 1 + StandardDeviation(i, j) - (Mean(i, j) * Mean(i, j)) - std::pow(std::exp(StandardDeviation(i, j)) , 2);
+         result += weights(i,0) * sum;
+      }
+   }
+
+   result /= static_cast<AReal>(m);
+
+   return result;
+}
+
+template <typename AReal>
+void TReference<AReal>::KLDivergenceGradients(TMatrixT<AReal> &dMean, TMatrixT<AReal> &dStandardDeviation,
+                                               const TMatrixT<AReal> &Mean, const TMatrixT<AReal> &StandardDeviation, 
+                                               const TMatrixT<AReal> &weights)
+{
+   size_t m,n;
+   m = Mean.GetNrows();
+   n = Mean.GetNcols();
+   AReal norm = 1.0 / m ;
+
+   for(size_t i = 0; i < m; i++){
+      for(size_t j = 0; j < n; j++){
+         dMean(i,j) = -2.0 * norm * Mean(i,j) * weights(i, 0);
+         dStandardDeviation(i,j) = 1.0 - (2.0 * std::exp(2.0 * StandardDeviation(i,j)));
+         dStandardDeviation(i,j) *= norm * weights(i, 0);
+      }
+   }
+}
+
 } // namespace DNN
 } // namespace TMVA

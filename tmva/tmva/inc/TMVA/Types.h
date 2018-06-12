@@ -99,6 +99,7 @@ namespace TMVA {
          kCategory       ,
          kDNN            ,
          kDL             ,
+         kAE             ,
          kPyRandomForest ,
          kPyAdaBoost     ,
          kPyGTB          ,

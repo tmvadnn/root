@@ -203,6 +203,15 @@ public:
                                     const TMatrixT<AReal> &weights);
    static void SoftmaxCrossEntropyGradients(TMatrixT<AReal> &dY, const TMatrixT<AReal> &Y,
                                             const TMatrixT<AReal> &output, const TMatrixT<AReal> &weights);
+
+   /** KL Divergence between the distributions corresponding to mean and standard deviation.
+     * This is applied at the end of Encoder network. The StandardDeviation is assumed to
+     * be the log of standard deviation and the computation is done accordingly. */
+   static AReal KLDivergence(const TMatrixT<AReal> &Mean, const TMatrixT<AReal> &StandardDeviation,
+                             const TMatrixT<AReal> &weights);
+   static void KLDivergenceGradients(TMatrixT<AReal> &dMean, TMatrixT<AReal> &dStandardDeviation,
+                                     const TMatrixT<AReal> &Mean, const TMatrixT<AReal> &StandardDeviation, 
+                                     const TMatrixT<AReal> &weights);   
    ///@}
 
    //____________________________________________________________________________

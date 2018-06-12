@@ -328,3 +328,106 @@ auto testSoftmaxCrossEntropyGradients(size_t ntests)
    }
    return maximumError;
 }
+
+//______________________________________________________________________________
+//
+//  KL Divergence
+//______________________________________________________________________________
+
+template <typename Architecture>
+auto testKLDivergence(size_t ntests)
+-> typename Architecture::Scalar_t
+{
+   using Matrix_t = typename Architecture::Matrix_t;
+   using Scalar_t   = typename Architecture::Scalar_t;
+   Double_t maximumError = 0.0;
+
+   for (size_t i = 0; i < ntests; i++) {
+      size_t m = rand() % 100 + 1;
+      size_t n = rand() % 100 + 1;
+
+      TMatrixT<Double_t> W(m, 1);
+      TMatrixT<Double_t> X(m, n);
+      TMatrixT<Double_t> Y(m, n);
+      TMatrixT<Double_t> Z(m, n);
+
+      W = 1.0;
+      randomMatrix(X);
+      randomMatrix(Y);
+
+      Matrix_t WArch(W);
+      Matrix_t XArch(X);
+      Matrix_t YArch(Y);
+
+      Scalar_t ce = evaluate<Architecture>(ELossFunction::kKLDivergence, YArch, XArch, WArch);
+
+      Scalar_t ceReference = 0.0;
+      for (size_t j = 0; j < m; j++) {
+         for (size_t k = 0; k < n; k++) {
+            ceReference += 1 + XArch(j, k) - pow(YArch(j, k), 2) - pow(exp(XArch(j, k)), 2);
+         }
+      }
+      ceReference /= (Scalar_t) m;
+
+      Double_t error;
+      if (ceReference != 0.0)
+          error = std::fabs((ce - ceReference) / ceReference);
+      else
+          error = std::fabs(ce - ceReference);
+      maximumError = std::max(error, maximumError);
+   }
+   return maximumError;
+}
+
+//______________________________________________________________________________
+template <typename Architecture>
+auto testKLDivergenceGradients(size_t ntests)
+-> typename Architecture::Scalar_t
+{
+   using Matrix_t = typename Architecture::Matrix_t;
+   using Scalar_t   = typename Architecture::Scalar_t;
+   Double_t maximumError = 0.0;
+
+   for (size_t i = 0; i < ntests; i++) {
+      size_t m = 8; //rand() % 100 + 1;
+      size_t n = 8; //rand() % 100 + 1;
+
+      TMatrixT<Double_t> W(m, 1);
+      TMatrixT<Double_t> X(m, n);
+      TMatrixT<Double_t> Y(m, n);
+      TMatrixT<Double_t> MeanRef(m, n);
+      TMatrixT<Double_t> SDRef(m, n);
+
+      randomMatrix(W);
+      randomMatrix(X);
+      randomMatrix(Y);
+
+      Matrix_t WArch(W);
+      Matrix_t XArch(X);
+      Matrix_t YArch(Y);
+      Matrix_t MeanArch(Y);
+      Matrix_t SDArch(Y);
+
+      evaluateGradients<Architecture>(MeanArch, SDArch, ELossFunction::kKLDivergence, YArch, XArch, WArch);
+
+      Double_t norm = 1.0 / m;
+
+      for (size_t j = 0; j < m; j++) {
+         for (size_t k = 0; k < n; k++) {
+            MeanRef(j, k) = -2.0 * Y(j, k) * W(j, 0) * norm;
+            SDRef(j, k) = (1.0 - (2.0 * exp(2.0 * X(j ,k)))) * norm;
+            SDRef(j, k) *= W(j, 0);
+         }
+      }
+
+      TMatrixT<Double_t> dMean(MeanArch);
+      TMatrixT<Double_t> dSD(SDArch);
+      Double_t mean_error = maximumRelativeError(dMean, MeanRef);
+      Double_t sd_error = maximumRelativeError(dSD, SDRef);
+      Double_t error = (mean_error + sd_error) / 2;
+      maximumError = std::max(error, maximumError);
+   }
+   return maximumError;
+}
+
+
