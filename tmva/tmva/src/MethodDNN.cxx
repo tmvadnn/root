@@ -44,6 +44,7 @@ Deep Neural Network Implementation.
 #include "TMVA/MethodBase.h"
 #include "TMVA/Timer.h"
 #include "TMVA/Types.h"
+#include "TMVA/StringUtils.h"
 #include "TMVA/Tools.h"
 #include "TMVA/Config.h"
 #include "TMVA/Ranking.h"
@@ -303,109 +304,6 @@ auto TMVA::MethodDNN::ParseKeyValueString(TString parseString,
    return blockKeyValues;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-TString fetchValue (const std::map<TString, TString>& keyValueMap, TString key)
-{
-   key.ToUpper ();
-   std::map<TString, TString>::const_iterator it = keyValueMap.find (key);
-   if (it == keyValueMap.end()) {
-      return TString ("");
-   }
-   return it->second;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-template <typename T>
-T fetchValue(const std::map<TString,TString>& keyValueMap,
-              TString key,
-              T defaultValue);
-
-////////////////////////////////////////////////////////////////////////////////
-
-template <>
-int fetchValue(const std::map<TString,TString>& keyValueMap,
-               TString key,
-               int defaultValue)
-{
-   TString value (fetchValue (keyValueMap, key));
-   if (value == "") {
-      return defaultValue;
-   }
-   return value.Atoi ();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-template <>
-double fetchValue (const std::map<TString,TString>& keyValueMap,
-                   TString key, double defaultValue)
-{
-   TString value (fetchValue (keyValueMap, key));
-   if (value == "") {
-      return defaultValue;
-   }
-   return value.Atof ();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-template <>
-TString fetchValue (const std::map<TString,TString>& keyValueMap,
-                    TString key, TString defaultValue)
-{
-   TString value (fetchValue (keyValueMap, key));
-   if (value == "") {
-      return defaultValue;
-   }
-   return value;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-template <>
-bool fetchValue (const std::map<TString,TString>& keyValueMap,
-                 TString key, bool defaultValue)
-{
-   TString value (fetchValue (keyValueMap, key));
-   if (value == "") {
-      return defaultValue;
-   }
-   value.ToUpper ();
-   if (value == "TRUE" || value == "T" || value == "1") {
-      return true;
-   }
-   return false;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-template <>
-std::vector<double> fetchValue(const std::map<TString, TString> & keyValueMap,
-                               TString key,
-                               std::vector<double> defaultValue)
-{
-   TString parseString (fetchValue (keyValueMap, key));
-   if (parseString == "") {
-      return defaultValue;
-   }
-   parseString.ToUpper ();
-   std::vector<double> values;
-
-   const TString tokenDelim ("+");
-   TObjArray* tokenStrings = parseString.Tokenize (tokenDelim);
-   TIter nextToken (tokenStrings);
-   TObjString* tokenString = (TObjString*)nextToken ();
-   for (; tokenString != NULL; tokenString = (TObjString*)nextToken ()) {
-      std::stringstream sstr;
-      double currentValue;
-      sstr << tokenString->GetString ().Data ();
-      sstr >> currentValue;
-      values.push_back (currentValue);
-   }
-   return values;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -557,16 +455,16 @@ void TMVA::MethodDNN::ProcessOptions()
    for (auto& block : strategyKeyValues) {
       TTrainingSettings settings;
 
-      settings.convergenceSteps = fetchValue(block, "ConvergenceSteps", 100);
-      settings.batchSize        = fetchValue(block, "BatchSize", 30);
-      settings.testInterval     = fetchValue(block, "TestRepetitions", 7);
-      settings.weightDecay      = fetchValue(block, "WeightDecay", 0.0);
-      settings.learningRate         = fetchValue(block, "LearningRate", 1e-5);
-      settings.momentum             = fetchValue(block, "Momentum", 0.3);
-      settings.dropoutProbabilities = fetchValue(block, "DropConfig",
+      settings.convergenceSteps = fetchValueUtils(block, "ConvergenceSteps", 100);
+      settings.batchSize        = fetchValueUtils(block, "BatchSize", 30);
+      settings.testInterval     = fetchValueUtils(block, "TestRepetitions", 7);
+      settings.weightDecay      = fetchValueUtils(block, "WeightDecay", 0.0);
+      settings.learningRate         = fetchValueUtils(block, "LearningRate", 1e-5);
+      settings.momentum             = fetchValueUtils(block, "Momentum", 0.3);
+      settings.dropoutProbabilities = fetchValueUtils(block, "DropConfig",
                                                  std::vector<Double_t>());
 
-      TString regularization = fetchValue(block, "Regularization",
+      TString regularization = fetchValueUtils(block, "Regularization",
                                           TString ("NONE"));
       if (regularization == "L1") {
          settings.regularization = DNN::ERegularization::kL1;
@@ -576,7 +474,7 @@ void TMVA::MethodDNN::ProcessOptions()
          settings.regularization = DNN::ERegularization::kNone;
       }
 
-      TString strMultithreading = fetchValue(block, "Multithreading",
+      TString strMultithreading = fetchValueUtils(block, "Multithreading",
                                              TString ("True"));
       if (strMultithreading.BeginsWith ("T")) {
          settings.multithreading = true;
