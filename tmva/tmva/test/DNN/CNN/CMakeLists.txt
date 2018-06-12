@@ -75,5 +75,7 @@ ROOT_ADD_TEST(TMVA-DNN-CNN-Backpropagation-CPU COMMAND testConvBackpropagationCp
 ROOT_EXECUTABLE(testMethodDLCpu TestMethodDL.cxx LIBRARIES ${Libraries})
 ROOT_ADD_TEST(TMVA-DNN-CNN-MethodDL-CPU COMMAND testMethodDLCpu)
 
+ROOT_EXECUTABLE(testMethodAECpu TestMethodAE.cxx LIBRARIES ${Libraries})
+ROOT_ADD_TEST(TMVA-DNN-CNN-MethodAE-CPU COMMAND testMethodAECpu)
 
 endif ()
