@@ -1300,6 +1300,67 @@ Double_t MethodDL::GetMvaValue(Double_t * /*errLower*/, Double_t * /*errUpper*/)
 
 }
 
+const std::vector<Float_t> & TMVA::MethodDL::GetRegressionValues()
+{
+   size_t nVariables = GetEvent()->GetNVariables();
+   Matrix_t X(1, nVariables);
+   std::vector<Matrix_t> X_vec;
+   const Event *ev = GetEvent();
+   const std::vector<Float_t>& inputValues = ev->GetValues();
+   for (size_t i = 0; i < nVariables; i++) {
+       X(0,i) = inputValues[i];
+   }
+   X_vec.emplace_back(X);
+   size_t nTargets = std::max(1u, ev->GetNTargets());
+   Matrix_t YHat(1, nTargets);
+   std::vector<Float_t> output(nTargets);
+   //auto net = fNet->CreateClone(1);
+   fNet->Prediction(YHat, X_vec, fOutputFunction);
+
+   for (size_t i = 0; i < nTargets; i++)
+       output[i] = YHat(0, i);
+
+   if (fRegressionReturnVal == NULL) {
+       fRegressionReturnVal = new std::vector<Float_t>();
+   }
+   fRegressionReturnVal->clear();
+
+   Event * evT = new Event(*ev);
+   for (size_t i = 0; i < nTargets; ++i) {
+      evT->SetTarget(i, output[i]);
+   }
+
+   const Event* evT2 = GetTransformationHandler().InverseTransform(evT);
+   for (size_t i = 0; i < nTargets; ++i) {
+      fRegressionReturnVal->push_back(evT2->GetTarget(i));
+   }
+   delete evT;
+   return *fRegressionReturnVal;
+}
+
+const std::vector<Float_t> & TMVA::MethodDL::GetMulticlassValues()
+{
+   size_t nVariables = GetEvent()->GetNVariables();
+   Matrix_t X(1, nVariables);
+   std::vector<Matrix_t> X_vec;
+   Matrix_t YHat(1, DataInfo().GetNClasses());
+   if (fMulticlassReturnVal == NULL) {
+      fMulticlassReturnVal = new std::vector<Float_t>(DataInfo().GetNClasses());
+   }
+
+   const std::vector<Float_t>& inputValues = GetEvent()->GetValues();
+   for (size_t i = 0; i < nVariables; i++) {
+      X(0,i) = inputValues[i];
+   }
+   X_vec.emplace_back(X);
+   fNet->Prediction(YHat, X_vec, fOutputFunction);
+   for (size_t i = 0; i < (size_t) YHat.GetNcols(); i++) {
+      (*fMulticlassReturnVal)[i] = YHat(0, i);
+   }
+   return *fMulticlassReturnVal;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 void MethodDL::AddWeightsXMLTo(void * parent) const
 {

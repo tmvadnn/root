@@ -84,6 +84,7 @@ private:
    using ArchitectureImpl_t = TMVA::DNN::TReference<Double_t>;
 #endif  
    using DeepNetImpl_t = TMVA::DNN::TDeepNet<ArchitectureImpl_t>;
+   using Matrix_t       = ArchitectureImpl_t::Matrix_t;
    std::unique_ptr<DeepNetImpl_t> fNet;
 
    /*! The option handling methods */
@@ -189,7 +190,8 @@ public:
    void Train();
 
    Double_t GetMvaValue(Double_t *err = 0, Double_t *errUpper = 0);
-
+   virtual const std::vector<Float_t>& GetRegressionValues();
+   virtual const std::vector<Float_t>& GetMulticlassValues();
    /*! Methods for writing and reading weights */
    using MethodBase::ReadWeightsFromStream;
    void AddWeightsXMLTo(void *parent) const;

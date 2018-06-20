@@ -12,6 +12,7 @@
  *                                                                                *
  * Authors (alphabetical):                                                        *
  *      Vladimir Ilievski      <ilievski.vladimir@live.com>  - CERN, Switzerland  *
+ *      Siddhartha Rao Kamalakara       <srk97c@gmail.com>   - CERN, Switzerland  *
  *                                                                                *
  * Copyright (c) 2005-2015:                                                       *
  *      CERN, Switzerland                                                         *
@@ -32,7 +33,7 @@
 #include "TString.h"
 #include "TROOT.h"
 
-#include "TMVA/MethodAE.h"
+#include "TMVA/MethodDNN.h"
 #include "TMVA/DataLoader.h"
 #include "TMVA/Factory.h"
 #include "TMVA/Config.h"
@@ -52,14 +53,8 @@ void testMethodAE_DNN(TString architectureStr)
    TMVA::Config::Instance();
    
    TFile *input(0);
-   // TString fname = "/Users/vladimirilievski/Desktop/Vladimir/GSoC/ROOT-CI/common-version/root/tmva/tmva/test/DNN/CNN/"
-   //                 "dataset/tmva_class_example.root";
-   /*
-   TString fname = "http://root.cern.ch/files/tmva_class_example.root";
-   TString fopt = "CACHEREAD";
-   input = TFile::Open(fname,fopt);
-   */
-   input = TFile::Open("http://root.cern.ch/files/tmva_reg_example.root", "CACHEREAD");
+
+   input = TFile::Open("~/Documents/gsoc/root/tree.root", "CACHEREAD");
 
 
    TString outfileName("TMVA_DNN.root");
@@ -67,15 +62,18 @@ void testMethodAE_DNN(TString architectureStr)
 
    TMVA::DataLoader *dataloader = new TMVA::DataLoader("dataset");
 
-   dataloader->AddVariable( "var1", "Variable 1", "units", 'F' );
-   dataloader->AddVariable( "var2", "Variable 2", "units", 'F' );
-   dataloader->AddSpectator( "spec1:=var1*2",  "Spectator 1", "units", 'F' );
-   dataloader->AddSpectator( "spec2:=var1*3",  "Spectator 2", "units", 'F' );
+   dataloader->AddVariable( "uniform1", "Variable 1", "units", 'F' );
+   dataloader->AddVariable( "uniform2", "Variable 2", "units", 'F' );
+   dataloader->AddVariable( "uniform_add", "Variable 3", "units", 'F' );
+   dataloader->AddVariable( "uniform_sub", "Variable 4", "units", 'F' );
 
-   dataloader->AddTarget("var1");
-   dataloader->AddTarget("var2");
+   dataloader->AddTarget("uniform1");
+   dataloader->AddTarget("uniform2");
+   dataloader->AddTarget("uniform_add");
+   dataloader->AddTarget("uniform_sub");
 
-   TTree *regTree = (TTree*)input->Get("TreeR");
+
+   TTree *regTree = (TTree*)input->Get("name_of_tree");
 
    Double_t regWeight  = 1.0;
 
@@ -83,21 +81,20 @@ void testMethodAE_DNN(TString architectureStr)
 
    TCut mycut = "";
 
-   dataloader->PrepareTrainingAndTestTree( mycut,
-                                         "nTrain_Regression=1000:nTest_Regression=0:SplitMode=Random:NormMode=NumEvents:!V" );
+   dataloader->PrepareTrainingAndTestTree( mycut,"nTrain_Regression=9000:nTest_Regression=1000:SplitMode=Random:NormMode=NumEvents:!V" );
 
    // Input Layout
-   TString inputLayoutString("InputLayout=1|1|2");
+   TString inputLayoutString("InputLayout=1|1|4");
 
    // Batch Layout
-   TString batchLayoutString("BatchLayout=256|1|2");
+   TString batchLayoutString("BatchLayout=16|1|4");
 
    // General layout.
-   TString layoutString("Layout=Encoder={RESHAPE|1|1|2|FLAT,DENSE|128|TANH,DENSE|64|TANH}Decoder={DENSE|128|TANH,DENSE|2|LINEAR,LINEAR}");
+   TString layoutString("Layout=Encoder={RESHAPE|1|1|4|FLAT,DENSE|2|SIGMOID}Decoder={DENSE|4|LINEAR}");
 
    // Training strategies.
-   TString training0("LearningRate=1e-1,Momentum=0.9,Repetitions=1,"
-                     "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
+   TString training0("LearningRate=1e-1,Momentum=0.9,Repetitions=100,"
+                     "ConvergenceSteps=10,BatchSize=16,TestRepetitions=10,"
                      "WeightDecay=1e-4,Regularization=L2,"
                      "DropConfig=0.0+0.5+0.5+0.5, Multithreading=True");
    TString training1("LearningRate=1e-2,Momentum=0.9,Repetitions=1,"
@@ -112,9 +109,7 @@ void testMethodAE_DNN(TString architectureStr)
    trainingStrategyString += training0 + "|" + training1 + "|" + training2;
 
    // General Options.
-   TString dnnOptions("!H:V:ErrorStrategy=SUMOFSQUARES:"
-                      "WeightInitialization=XAVIERUNIFORM");
-
+   TString dnnOptions("!H:V:ErrorStrategy=SUMOFSQUARES:""WeightInitialization=XAVIERUNIFORM");
    
    // Concatenate all option strings
    dnnOptions.Append(":");
@@ -133,8 +128,7 @@ void testMethodAE_DNN(TString architectureStr)
    dnnOptions.Append(architectureStr);
 
    // create factory
-   TMVA::Factory *factory = new TMVA::Factory( "TMVARegression", outputFile,
-                                               "!V:!Silent:Color:DrawProgressBar:AnalysisType=Regression" );
+   TMVA::Factory *factory = new TMVA::Factory( "TMVARegression", outputFile,"!V:!Silent:Color:DrawProgressBar:AnalysisType=Regression" );
 
    TString methodTitle = "AE_" + architectureStr;
    factory->BookMethod(dataloader, TMVA::Types::kAE, methodTitle, dnnOptions);
@@ -146,7 +140,7 @@ void testMethodAE_DNN(TString architectureStr)
    outputFile->Close();
 
    std::cout << "==> Wrote root file: " << outputFile->GetName() << std::endl;
-   std::cout << "==> TMVAClassification is done!" << std::endl;
+   std::cout << "==> TMVARegression is done!" << std::endl;
 
    delete factory;
    delete dataloader;
