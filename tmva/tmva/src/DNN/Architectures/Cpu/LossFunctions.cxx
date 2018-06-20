@@ -194,5 +194,58 @@ void TCpu<AFloat>::SoftmaxCrossEntropyGradients(TCpuMatrix<AFloat> &dY, const TC
    Y.GetThreadExecutor().Map(f, ROOT::TSeqI(Y.GetNrows()));
 }
 
+//______________________________________________________________________________
+template <typename AFloat>
+AFloat TCpu<AFloat>::KLDivergence(const TCpuMatrix<AFloat> &Y, const TCpuMatrix<AFloat> &output,
+                                  const TCpuMatrix<AFloat> &weights)
+{
+   const AFloat *dataY = Y.GetRawDataPointer();
+   const AFloat *dataOutput = output.GetRawDataPointer();
+   const AFloat *dataWeights = weights.GetRawDataPointer();
+   std::vector<AFloat> temp(Y.GetNElements());
+   size_t m = Y.GetNrows();
+   AFloat norm = 1.0 / ((AFloat) m);
+
+   auto f = [&dataY, &dataOutput, &dataWeights, &temp, m](UInt_t workerID) {
+      AFloat dy = 1 + dataOutput[workerID] - std::pow(dataY[workerID], 2) - std::pow(std::exp(dataOutput[workerID]), 2);
+      temp[workerID] = dataWeights[workerID % m] * dy;
+      return 0;
+   };
+
+   auto reduction = [](const std::vector<AFloat> & v )
+   {
+      return std::accumulate(v.begin(),v.end(),AFloat{});
+   };
+
+   Y.GetThreadExecutor().Map(f, ROOT::TSeqI(Y.GetNElements()));
+   return norm * Y.GetThreadExecutor().Reduce(temp, reduction);
+}
+
+//______________________________________________________________________________
+template <typename AFloat>
+void TCpu<AFloat>::KLDivergenceGradients(TCpuMatrix<AFloat> &dY, TCpuMatrix<AFloat> &dSD, const TCpuMatrix<AFloat> &Y,
+                                         const TCpuMatrix<AFloat> &output, const TCpuMatrix<AFloat> &weights)
+{
+
+         AFloat  *dataDY     = dY.GetRawDataPointer();
+         AFloat  *dataDSD    = dSD.GetRawDataPointer();
+   const AFloat  *dataY      = Y.GetRawDataPointer();
+   const AFloat  *dataOutput = output.GetRawDataPointer();
+   const AFloat *dataWeights = weights.GetRawDataPointer();
+
+   size_t m = Y.GetNrows();
+   AFloat norm = 1.0 / ((AFloat) m);
+
+   auto f = [&dataDY, &dataDSD, &dataY, &dataOutput, &dataWeights, m, norm](UInt_t workerID) {
+      dataDY[workerID] = -2.0 * norm * dataY[workerID];
+      dataDY[workerID] *= dataWeights[workerID % m];
+      dataDSD[workerID] = 1.0 - (2.0 * std::exp(2.0 * dataOutput[workerID]));
+      dataDSD[workerID] *= norm * dataWeights[workerID % m];
+      return 0;
+   };
+
+   Y.GetThreadExecutor().Map(f, ROOT::TSeqI(Y.GetNElements()));
+}
+
 } // namespace DNN
 } // namespace TMVA

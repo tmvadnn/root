@@ -71,4 +71,19 @@ int main()
     std::cout << "Testing softmax cross entropy gradient: ";
     std::cout << "maximum relative error = " << print_error(error) << std::endl;
     if (error > 1e-3) return 1;
+
+
+    //
+    // KL Divergence
+    //
+
+    error = testKLDivergence<TReference<double>>(10);
+    std::cout << "Testing KL divergence loss:     ";
+    std::cout << "maximum relative error = " << print_error(error) << std::endl;
+    if (error > 1e-3) return 1;
+
+    error = testKLDivergenceGradients<TReference<double>>(10);
+    std::cout << "Testing KL divergence gradients: ";
+    std::cout << "maximum relative error = " << print_error(error) << std::endl;
+    if (error > 1e-3) return 1;    
 }

@@ -1,10 +1,10 @@
 // @(#)root/tmva/tmva/dnn:$Id$
-// Author: Vladimir Ilievski, Saurav Shekhar
+// Author: Vladimir Ilievski, Saurav Shekhar, Siddhartha Rao Kamalakara
 
 /**********************************************************************************
  * Project: TMVA - a Root-integrated toolkit for multivariate data analysis       *
  * Package: TMVA                                                                  *
- * Class  : MethodDL                                                              *
+ * Class  : MethodAE                                                              *
  * Web    : http://tmva.sourceforge.net                                           *
  *                                                                                *
  * Description:                                                                   *
@@ -13,6 +13,7 @@
  * Authors (alphabetical):                                                        *
  *      Vladimir Ilievski  <ilievski.vladimir@live.com> - CERN, Switzerland       *
  *      Saurav Shekhar     <sauravshekhar01@gmail.com> - ETH Zurich, Switzerland  *
+ *      Siddhartha Rao Kamalakara  <srk97c@gmail.com> - CERN, Switzerland         *
  *                                                                                *
  * Copyright (c) 2005-2015:                                                       *
  *      CERN, Switzerland                                                         *
@@ -25,14 +26,14 @@
  * (http://tmva.sourceforge.net/LICENSE)                                          *
  **********************************************************************************/
 
-#ifndef ROOT_TMVA_MethodDL
-#define ROOT_TMVA_MethodDL
+#ifndef ROOT_TMVA_MethodAE
+#define ROOT_TMVA_MethodAE
 
 //////////////////////////////////////////////////////////////////////////
 //                                                                      //
-// MethodDL                                                             //
+// MethodAE                                                             //
 //                                                                      //
-// Method class for all Deep Learning Networks                          //
+// Method class for creating Auto Encoders                              //
 //                                                                      //
 //////////////////////////////////////////////////////////////////////////
 
@@ -47,7 +48,7 @@
 #include "TMVA/DNN/Architectures/Cpu.h"
 #endif
 
-#ifdef R__HAS_TMVAGPU
+#ifdef R__HAS_TMVACUDA
 #include "TMVA/DNN/Architectures/Cuda.h"
 #endif
 
@@ -59,7 +60,7 @@
 namespace TMVA {
 
 /*! All of the options that can be specified in the training string */
-struct TTrainingSettings {
+struct TTrainingAESettings {
    size_t batchSize;
    size_t testInterval;
    size_t convergenceSteps;
@@ -72,21 +73,16 @@ struct TTrainingSettings {
    bool multithreading;
 };
 
-class MethodDL : public MethodBase {
+class MethodAE : public MethodBase {
 
 private:
    // Key-Value vector type, contining the values for the training options
    using KeyValueVector_t = std::vector<std::map<TString, TString>>;
-// #ifdef R__HAS_TMVAGPU
-//    using ArchitectureImpl_t = TMVA::DNN::TCuda<Double_t>;
-// #else
-// do not use arch GPU for evaluation. It is too slow for batch size=1   
 #ifdef R__HAS_TMVACPU
    using ArchitectureImpl_t = TMVA::DNN::TCpu<Double_t>;
 #else
    using ArchitectureImpl_t = TMVA::DNN::TReference<Double_t>;
 #endif  
-//#endif
    using DeepNetImpl_t = TMVA::DNN::TDeepNet<ArchitectureImpl_t>;
    using Matrix_t       = ArchitectureImpl_t::Matrix_t;
    std::unique_ptr<DeepNetImpl_t> fNet;
@@ -108,6 +104,14 @@ private:
    template <typename Architecture_t, typename Layer_t>
    void CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
                       std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets);
+
+   template <typename Architecture_t, typename Layer_t>
+   void CreateEncoder(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
+                      std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layoutString);
+
+   template <typename Architecture_t, typename Layer_t>
+   void CreateDecoder(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
+                      std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layoutString);                                   
 
    template <typename Architecture_t, typename Layer_t>
    void ParseDenseLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
@@ -133,11 +137,8 @@ private:
 
    template <typename Architecture_t, typename Layer_t>
    void ParseLstmLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                       std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layerString, TString delim);
+                       std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layerString, TString delim);   
 
-   template <typename Architecture_t>
-   void TrainDeepNet(); 
-   
    size_t fInputDepth;  ///< The depth of the input.
    size_t fInputHeight; ///< The height of the input.
    size_t fInputWidth;  ///< The width of the input.
@@ -145,8 +146,6 @@ private:
    size_t fBatchDepth;  ///< The depth of the batch used to train the deep net.
    size_t fBatchHeight; ///< The height of the batch used to train the deep net.
    size_t fBatchWidth;  ///< The width of the batch used to train the deep net.
-   
-   size_t fRandomSeed;  ///<The random seed used to initialize the weights and shuffling batches (default is zero)
 
    DNN::EInitialization fWeightInitialization; ///< The initialization method
    DNN::EOutputFunction fOutputFunction;       ///< The output function for making the predictions
@@ -160,12 +159,11 @@ private:
    TString fWeightInitializationString; ///< The string defining the weight initialization method
    TString fArchitectureString;         ///< The string defining the architecure: CPU or GPU
    bool fResume;
-   bool fBuildNet;                     ///< Flag to control whether to build fNet, the stored network used for the evaluation
 
    KeyValueVector_t fSettings;                       ///< Map for the training strategy
-   std::vector<TTrainingSettings> fTrainingSettings; ///< The vector defining each training strategy
+   std::vector<TTrainingAESettings> fTrainingSettings; ///< The vector defining each training strategy
 
-   ClassDef(MethodDL, 0);
+   ClassDef(MethodAE, 0);
 
 protected:
    // provide a help message
@@ -173,13 +171,13 @@ protected:
 
 public:
    /*! Constructor */
-   MethodDL(const TString &jobName, const TString &methodTitle, DataSetInfo &theData, const TString &theOption);
+   MethodAE(const TString &jobName, const TString &methodTitle, DataSetInfo &theData, const TString &theOption);
 
    /*! Constructor */
-   MethodDL(DataSetInfo &theData, const TString &theWeightFile);
+   MethodAE(DataSetInfo &theData, const TString &theWeightFile);
 
    /*! Virtual Destructor */
-   virtual ~MethodDL();
+   virtual ~MethodAE();
 
    /*! Function for parsing the training settings, provided as a string
     *  in a key-value form.  */
@@ -193,8 +191,7 @@ public:
 
    Double_t GetMvaValue(Double_t *err = 0, Double_t *errUpper = 0);
    virtual const std::vector<Float_t>& GetRegressionValues();
-   virtual const std::vector<Float_t>& GetMulticlassValues();   
-
+   virtual const std::vector<Float_t>& GetMulticlassValues();
    /*! Methods for writing and reading weights */
    using MethodBase::ReadWeightsFromStream;
    void AddWeightsXMLTo(void *parent) const;
@@ -227,8 +224,8 @@ public:
    TString GetWeightInitializationString() const { return fWeightInitializationString; }
    TString GetArchitectureString() const { return fArchitectureString; }
 
-   const std::vector<TTrainingSettings> &GetTrainingSettings() const { return fTrainingSettings; }
-   std::vector<TTrainingSettings> &GetTrainingSettings() { return fTrainingSettings; }
+   const std::vector<TTrainingAESettings> &GetTrainingSettings() const { return fTrainingSettings; }
+   std::vector<TTrainingAESettings> &GetTrainingSettings() { return fTrainingSettings; }
    const KeyValueVector_t &GetKeyValueSettings() const { return fSettings; }
    KeyValueVector_t &GetKeyValueSettings() { return fSettings; }
 
