@@ -139,6 +139,43 @@ void TCuda<AFloat>::Copy(std::vector<TCudaMatrix<AFloat>> & B,
 }
 
 //____________________________________________________________________________
+
+inline bool isInteger(double x)
+{
+   return x == floor(x);
+}
+
+int calculateDimension(size_t imgDim, size_t fltDim, size_t padding, size_t stride)
+{
+   double dimension = ((imgDim - fltDim + 2 * padding) / stride) + 1;
+   if (!isInteger(dimension)) {
+      std::cout << "Not compatible hyper parameters" << std::endl;
+      std::exit(EXIT_FAILURE);
+   }
+
+   return (size_t)dimension;
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+/// \brief A helper for image operations that rearranges image regions into
+///        column vectors.
+///
+/// \param[out] A The output matrix. Each row corresponds to a receptive field.
+/// \param[in] B The input matrix. Each row corresponds to a row in the image view.
+/// \param[in] imgHeight The heigh of the input.
+/// \param[in] imgWidth The output of the input.
+/// \param[in] fltHeight Height of the kernel.
+/// \param[in] fltWidth Width of the kernel.
+/// \param[in] strideRows stride size in the horizontal dimension.
+/// \param[in] strideCols stride size in the vertical dimension.
+/// \param[in] zeroPaddingHeight The padding in the horizontal dimension.
+/// \param[in] zeroPaddingWidth The padding in the vertical dimension.
+///
+/// This transformation allows us to express a 2D convolution as a matrix
+/// multiplication. We can therefore harness the finely tuned GEMM
+/// implementation of cuBLAS to achieve maximum performance. This function
+/// can greatly speed-up propagation in TConvLayer.
+///////////////////////////////////////////////////////////////////////////////////
 template<typename AFloat>
 void TCuda<AFloat>::Im2col(TCudaMatrix<AFloat> &A,
                            const TCudaMatrix<AFloat> &B,
@@ -151,6 +188,16 @@ void TCuda<AFloat>::Im2col(TCudaMatrix<AFloat> &A,
                            size_t zeroPaddingHeight,
                            size_t zeroPaddingWidth)
 {
+   size_t depth = B.GetNrows();
+
+   dim3 blockDims = TDevice::BlockDims2D();
+   dim3 gridDims  = TDevice::GridDims2D(A);
+   cudaStream_t s = A.GetComputeStream();
+
+   ::TMVA::DNN::Cuda::Im2Col<<<gridDims, blockDims, 0, s>>>(A.GetDataPointer(), B.GetDataPointer(), depth, imgHeight, imgWidth,
+                                                            fltHeight, fltWidth, strideRows, strideCols,
+                                                            zeroPaddingHeight, zeroPaddingWidth);
+
 
 }
 

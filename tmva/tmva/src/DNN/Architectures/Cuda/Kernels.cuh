@@ -203,6 +203,97 @@ __device__ void ReduceSum(AFloat *result, AFloat * sdata)
    __syncthreads();
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+/// \brief Calculate the dimension of an output volume, given the sliding parameters
+///        and the input shape.
+/// \param[in] imgDim The size of the input tensor in a spatial dimension.
+/// \param[in] fltDim The size of the sliding filter in the same dimension.
+/// \param[in] padding Number of zeroes to pad the input with.
+/// \param[in] stride Number of pixels the kernel is sliding in each iteration.
+/// \returns   The output dimension.
+///
+/// Note that no checks are performed to assert validity of the input parameters.
+/// We are allowed to assume them valid because those checks have already been
+/// performed prior to the invocation of the kernel.
+////////////////////////////////////////////////////////////////////////////////////
+__device__ int calculateDimension(int imgDim, int fltDim, int padding, int stride)
+{
+   // Parameters passed at this point are guaranteed to be valid - skip checks.
+   return ((imgDim - fltDim + 2 * padding) / stride) + 1;
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+/// \brief A kernel that re-arranges image regions of the input matrix \B, into
+///        column vectors in matrix \A.
+///
+/// \param[out] A The output matrix. Each row corresponds to a receptive field.
+/// \param[in] B The input matrix. Each row corresponds to a row in the image view.
+/// \param[in] depth The depth of the input tensor.
+/// \param[in] imgHeight The height of the input tensor.
+/// \param[in] imgWidth The output of the input tensor
+/// \param[in] fltHeight Height of the filter.
+/// \param[in] fltWidth Width of the filter.
+/// \param[in] strideRows stride size in the horizontal dimension.
+/// \param[in] strideCols stride size in the vertical dimension.
+/// \param[in] zeroPaddingHeight The padding in the horizontal dimension.
+/// \param[in] zeroPaddingWidth The padding in the vertical dimension.
+///
+/// The kernel should be invoked with one thread per output element. Note that
+/// matrices \A and \B have different shapes. Each thread in this kernel is
+/// responsible for filling one cell of the output matrix \A. It does so by computing
+/// the correct element to copy from the input matrix \B. We therefore never need to
+/// block. When reading this kernel it is important to keep in mind that TCudaMatrix
+/// objects are saved in column major order for compatibility with cuBLAS.
+////////////////////////////////////////////////////////////////////////////////////
+template<typename AFloat>
+__global__ void Im2Col(AFloat * A,
+                       const AFloat * B,
+                       int depth,
+                       int imgHeight,
+                       int imgWidth,
+                       int fltHeight,
+                       int fltWidth,
+                       int strideRows,
+                       int strideCols,
+                       int zeroPaddingHeight,
+                       int zeroPaddingWidth)
+{
+    // The row of the output matrix.
+    int i = blockDim.y * blockIdx.y + threadIdx.y;
+
+    // The column of the output matrix.
+    int j = blockDim.x * blockIdx.x + threadIdx.x;
+
+    // Number of column in matrix A.
+    int NLocalViewPixels = fltHeight * fltWidth * depth;
+
+    // Number of rows in matrix A.
+    int NLocalViews = calculateDimension(imgWidth, fltWidth, zeroPaddingWidth, strideCols) *
+                      calculateDimension(imgHeight, fltHeight, zeroPaddingHeight, strideRows);
+
+    if (i >= NLocalViews || j >= NLocalViewPixels) return;
+
+    int index = j * NLocalViews + i;
+
+    int numSlidesPerRow = calculateDimension(imgWidth, fltWidth, zeroPaddingWidth, strideCols);
+
+    // Which image channel of B?
+    int bz = j / (fltHeight * fltWidth);
+
+    // Which row in matrix B?
+    int by = (i / numSlidesPerRow) * strideRows - zeroPaddingHeight + (j - bz * fltHeight * fltWidth) / fltWidth;
+
+    // Which column in matrix B?
+    int bx = (i % numSlidesPerRow) * strideCols - zeroPaddingWidth + (j - bz * fltHeight * fltWidth) % fltWidth;
+
+    if (bx < 0 || by < 0 || bx >= imgWidth || by >= imgHeight) {
+        // This is a padding element.
+        A[index] = 0;
+    }
+    else {
+        A[index] = B[(bx + by * imgWidth) * depth + bz];
+    }
+}
 //____________________________________________________________________________
 template<typename AFloat>
 __global__ void AddRowWise(AFloat * W,
