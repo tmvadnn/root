@@ -129,7 +129,7 @@ public:
 
    /*! Read the information and the weights about the layer from XML node. */
    virtual void ReadWeightsFromXML(void *parent);
-   
+
 
    /** Getters */
    size_t GetTimeSteps() const { return fTimeSteps; }
@@ -166,7 +166,7 @@ TBasicRNNLayer<Architecture_t>::TBasicRNNLayer(size_t batchSize, size_t stateSiz
                                                bool rememberState, DNN::EActivationFunction f, bool /*training*/,
                                                DNN::EInitialization fA)
    // TODO inputDepth and outputDepth changed to batchSize??
-   : VGeneralLayer<Architecture_t>(batchSize, 1, timeSteps, inputSize, 1, timeSteps, stateSize, 2,
+   : VGeneralLayer<Architecture_t>(batchSize, 1, timeSteps, inputSize, 1, timeSteps, stateSize, "RNN", 2,
                                    {stateSize, stateSize}, {inputSize, stateSize}, 1, {stateSize}, {1}, batchSize,
                                    timeSteps, stateSize, fA),
      fTimeSteps(timeSteps),
@@ -256,12 +256,12 @@ auto inline TBasicRNNLayer<Architecture_t>::Forward(Tensor_t &input, bool /*isTr
    // H : state size
    // T : time size
    // B : batch size
-   
+
    Tensor_t arrInput;
    for (size_t t = 0; t < fTimeSteps; ++t) arrInput.emplace_back(this->GetBatchSize(), this->GetInputWidth()); // T x B x D
    Architecture_t::Rearrange(arrInput, input);
    Tensor_t arrOutput;
-   for (size_t t = 0; t < fTimeSteps;++t) arrOutput.emplace_back(this->GetBatchSize(), fStateSize); // T x B x H 
+   for (size_t t = 0; t < fTimeSteps;++t) arrOutput.emplace_back(this->GetBatchSize(), fStateSize); // T x B x H
 
    if (!this->fRememberState) InitState(DNN::EInitialization::kZero);
    for (size_t t = 0; t < fTimeSteps; ++t) {
@@ -332,7 +332,7 @@ auto inline TBasicRNNLayer<Architecture_t>::Backward(Tensor_t &gradients_backwar
    // reinitialize weights and biases gradients to 0
    fWeightInputGradients.Zero();
    fWeightStateGradients.Zero();
-   fBiasGradients.Zero(); 
+   fBiasGradients.Zero();
 
    for (size_t t = fTimeSteps; t > 0; t--) {
       //const Matrix_t & currStateActivations = arr_output[t - 1];

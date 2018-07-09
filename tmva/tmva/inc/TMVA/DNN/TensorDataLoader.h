@@ -32,7 +32,7 @@
 #include <algorithm>
 
 namespace TMVA {
-   class DataSetInfo; 
+   class DataSetInfo;
 namespace DNN {
 
 //
@@ -57,6 +57,8 @@ template <typename Architecture_t>
 class TTensorBatch {
 public:
    using Matrix_t = typename Architecture_t::Matrix_t;
+   using TensorInput =
+      std::tuple<const std::vector<Matrix_t> &, const Matrix_t &, const Matrix_t &>;
 
 private:
    std::vector<Matrix_t> fInputTensor; ///< The input tensor batch, one matrix one input.
@@ -132,6 +134,8 @@ private:
    using HostBuffer_t = typename Architecture_t::HostBuffer_t;
    using DeviceBuffer_t = typename Architecture_t::DeviceBuffer_t;
    using Matrix_t = typename Architecture_t::Matrix_t;
+   using TensorInput =
+      std::tuple<const std::vector<Matrix_t> &, const Matrix_t &, const Matrix_t &>;
    using BatchIterator_t = TTensorBatchIterator<Data_t, Architecture_t>;
 
    const Data_t &fData; ///< The data that should be loaded in the batches.
@@ -247,7 +251,7 @@ TTensorBatch<Architecture_t> TTensorDataLoader<Data_t, Architecture_t>::GetTenso
    // here sample index has batch size as offset , while in
    // copy tensor input has batch depth.
    // We support then now two cases: batchdepth = 1  batchHeight = batch size
-   //   or batch depth = batch size 
+   //   or batch depth = batch size
    size_t sampleIndex = fBatchIndex * fBatchSize;
    IndexIterator_t sampleIndexIterator = fSampleIndices.begin() + sampleIndex;
 

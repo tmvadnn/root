@@ -93,8 +93,8 @@ template <typename Architecture_t>
 TReshapeLayer<Architecture_t>::TReshapeLayer(size_t batchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
                                              size_t depth, size_t height, size_t width, size_t outputNSlices,
                                              size_t outputNRows, size_t outputNCols, bool flattening)
-   : VGeneralLayer<Architecture_t>(batchSize, inputDepth, inputHeight, inputWidth, depth, height, width, 0, 0, 0, 0, 0,
-                                   0, outputNSlices, outputNRows, outputNCols, EInitialization::kZero),
+   : VGeneralLayer<Architecture_t>(batchSize, inputDepth, inputHeight, inputWidth, depth, height, width, "RESHAPE", 0, 0,
+                                   0, 0, 0, 0, outputNSlices, outputNRows, outputNCols, EInitialization::kZero),
      fFlattening(flattening)
 {
    if (this->GetInputDepth() * this->GetInputHeight() * this->GetInputWidth() !=
@@ -152,7 +152,7 @@ auto TReshapeLayer<Architecture_t>::Backward(std::vector<Matrix_t> &gradients_ba
                                              /*inp2*/) -> void
 {
    // in case of first layer size is zero - do nothing
-   if (gradients_backward.size() == 0) return; 
+   if (gradients_backward.size() == 0) return;
    if (fFlattening) {
       size_t size = gradients_backward.size();
       size_t nRows = gradients_backward[0].GetNrows();

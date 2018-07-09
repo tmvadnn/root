@@ -40,8 +40,9 @@
 
 #include "TMVA/MethodDL.h"
 #include "TMVA/Types.h"
+#include "TMVA/DNN/TensorDataLoader.h"
 
-#include "TMVA/DNN/Architectures/Reference.h"
+#include "TMVA/DNN/Architectures/Cpu.h"
 
 #ifdef R__HAS_TMVACPU
 #include "TMVA/DNN/Architectures/Cpu.h"
@@ -51,30 +52,46 @@
 #include "TMVA/DNN/Architectures/Cuda.h"
 #endif
 
+#include "TMVA/DNN/Architectures/Reference.h"
 #include "TMVA/DNN/Functions.h"
 #include "TMVA/DNN/DeepNet.h"
 
 #include <vector>
 
+using namespace TMVA;
+using namespace TMVA::DNN::CNN;
+using namespace TMVA::DNN;
+
+using Architecture_t = TCpu<Double_t>;
+using Scalar_t = Architecture_t::Scalar_t;
+using DeepNet_t = TMVA::DNN::TDeepNet<Architecture_t>;
+//using Matrix_t = typename TCpu<double>::Matrix_t;
+//using TensorInput = std::tuple<const std::vector<Matrix_t> &, const Matrix_t &, const Matrix_t &>;
+using TensorDataLoader_t = TTensorDataLoader<TMVAInput_t, Architecture_t>;
+
+using TMVA::DNN::EActivationFunction;
+using TMVA::DNN::ELossFunction;
+using TMVA::DNN::EInitialization;
+using TMVA::DNN::EOutputFunction;
+
 namespace TMVA {
 
 /*! All of the options that can be specified in the training string */
 struct GANTTrainingSettings {
+   size_t maxEpochs;
    size_t generatorBatchSize;
    size_t generatorTestInterval;
    size_t generatorConvergenceSteps;
-   size_t generatorMaxEpochs; 
    DNN::ERegularization generatorRegularization;
    Double_t generatorLearningRate;
    Double_t generatorMomentum;
    Double_t generatorWeightDecay;
    std::vector<Double_t> generatorDropoutProbabilities;
-   bool generatorMultithreading; 
+   bool generatorMultithreading;
 
    size_t discriminatorBatchSize;
    size_t discriminatorTestInterval;
    size_t discriminatorConvergenceSteps;
-   size_t discriminatorMaxEpochs; 
    DNN::ERegularization discriminatorRegularization;
    Double_t discriminatorLearningRate;
    Double_t discriminatorMomentum;
@@ -89,13 +106,15 @@ class MethodGAN : public MethodBase {
 private:
    // Key-Value vector type, contining the values for the training options
    using KeyValueVector_t = std::vector<std::map<TString, TString>>;
+   //using TensorInput = std::tuple<const std::vector<TMatrixT<Double_t>> &>;
 #ifdef R__HAS_TMVACPU
    using ArchitectureImpl_t = TMVA::DNN::TCpu<Double_t>;
 #else
    using ArchitectureImpl_t = TMVA::DNN::TReference<Double_t>;
-#endif  
+#endif
    using DeepNetImpl_t = TMVA::DNN::TDeepNet<ArchitectureImpl_t>;
-   std::unique_ptr<DeepNetImpl_t> generatorFNet, discriminatorFNet;
+   std::unique_ptr<DeepNetImpl_t> generatorFNet, discriminatorFNet, combinedFNet;
+   using Matrix_t = typename ArchitectureImpl_t::Matrix_t;
 
    /*! The option handling methods */
    void DeclareOptions();
@@ -176,9 +195,20 @@ public:
 
    /*! Methods for training the deep learning network */
    void Train();
-   
-   //TODO: Check what this method stands for (Do we need to override it?)
+
    Double_t GetMvaValue(Double_t *err = 0, Double_t *errUpper = 0);
+   Double_t GetMvaValueGAN(std::unique_ptr<DeepNetImpl_t> & fNet, Double_t *err = 0, Double_t *errUpper = 0);
+
+   TTensorDataLoader<TensorInput, Architecture_t> CreateNoisyDataLoader(TMatrixT<Double_t> &outputMatrix, TMatrixT<Double_t> &weights, DeepNet_t DeepNet, size_t nSamples, size_t nOutputs,
+                                            size_t nThreads, size_t classLabel);
+   Double_t ComputeLoss(TTensorDataLoader<TensorInput, Architecture_t> generalDataloader, DeepNet_t DeepNet);
+   Double_t ComputeLoss(TTensorDataLoader<TMVAInput_t, Architecture_t> generalDataloader, DeepNet_t DeepNet);
+   TTensorDataLoader<TensorInput, Architecture_t> CreateDiscriminatorFakeData(TTensorDataLoader<TensorInput, Architecture_t> trainingData, std::unique_ptr<DeepNetImpl_t> &Net, DeepNet_t DeepNet,
+                  TMatrixT<Double_t> discriminatorFakeDataOutputMatrix, TMatrixT<Double_t> discriminatorFakeDataWeights, size_t nSamples, size_t nThreads);
+   DeepNet_t CombineGAN(DeepNet_t &generatorNet, DeepNet_t discriminatorNet, ELossFunction loss, EInitialization initialization,
+                                                   ERegularization regularization, Scalar_t weightDecay);
+
+   //void AddWeightsXMLToGAN(std::unique_ptr<DeepNetImpl_t> & fNet, void * parent);
 
    /*! Methods for writing and reading weights */
    using MethodBase::ReadWeightsFromStream;

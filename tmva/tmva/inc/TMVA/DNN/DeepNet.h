@@ -380,8 +380,8 @@ auto TDeepNet<Architecture_t, Layer_t>::calculateDimension(int imgDim, int fltDi
 {
    Scalar_t dimension = ((imgDim - fltDim + 2 * padding) / stride) + 1;
    if (!isInteger(dimension) || dimension <= 0) {
-      this->Print(); 
-      int iLayer = fLayers.size(); 
+      this->Print();
+      int iLayer = fLayers.size();
       Fatal("calculateDimension","Not compatible hyper parameters for layer %d - (imageDim, filterDim, padding, stride) %d , %d , %d , %d",
             iLayer, imgDim, fltDim, padding, stride);
       // std::cout << " calculateDimension - Not compatible hyper parameters (imgDim, fltDim, padding, stride)"
@@ -702,7 +702,7 @@ TReshapeLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddReshapeLaye
       outputNCols = inputNCols;
       depth = 1;
       height = 1;
-      width = outputNCols; 
+      width = outputNCols;
    } else {
       outputNSlices = this->GetBatchSize();
       outputNRows = depth;
@@ -921,7 +921,7 @@ auto TDeepNet<Architecture_t, Layer_t>::Backward(std::vector<Matrix_t> &input, c
    }
 
    // need to have a dummy tensor (size=0) to pass for activation gradient backward which
-   // are not computed for the first layer 
+   // are not computed for the first layer
    std::vector<Matrix_t> dummy;
    fLayers[0]->Backward(dummy, input, inp1, inp2);
 }

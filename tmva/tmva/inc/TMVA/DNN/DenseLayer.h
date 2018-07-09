@@ -126,7 +126,7 @@ template <typename Architecture_t>
 TDenseLayer<Architecture_t>::TDenseLayer(size_t batchSize, size_t inputWidth, size_t width, EInitialization init,
                                          Scalar_t dropoutProbability, EActivationFunction f, ERegularization reg,
                                          Scalar_t weightDecay)
-   : VGeneralLayer<Architecture_t>(batchSize, 1, 1, inputWidth, 1, 1, width, 1, width, inputWidth, 1, width, 1, 1,
+   : VGeneralLayer<Architecture_t>(batchSize, 1, 1, inputWidth, 1, 1, width, "DENSE", 1, width, inputWidth, 1, width, 1, 1,
                                    batchSize, width, init),
      fDerivatives(), fDropoutProbability(dropoutProbability), fF(f), fReg(reg), fWeightDecay(weightDecay)
 {
@@ -199,7 +199,7 @@ template <typename Architecture_t>
 void TDenseLayer<Architecture_t>::Print() const
 {
    std::cout << " DENSE Layer: \t ";
-   std::cout << " ( Input = " << this->GetWeightsAt(0).GetNcols();  // input size 
+   std::cout << " ( Input = " << this->GetWeightsAt(0).GetNcols();  // input size
    std::cout << " , Width = " << this->GetWeightsAt(0).GetNrows() << " ) ";  // layer width
    if (this->GetOutput().size() > 0) {
       std::cout << "\tOutput = ( " << this->GetOutput().size() << " , " << this->GetOutput()[0].GetNrows() << " , " << this->GetOutput()[0].GetNcols() << " ) ";
@@ -223,7 +223,7 @@ void TDenseLayer<Architecture_t>::AddWeightsXMLTo(void *parent)
    int activationFunction = static_cast<int>(this -> GetActivationFunction());
    gTools().xmlengine().NewAttr(layerxml, 0, "ActivationFunction",
                                 TString::Itoa(activationFunction, 10));
-   // write weights and bias matrix 
+   // write weights and bias matrix
    this->WriteMatrixToXML(layerxml, "Weights", this -> GetWeightsAt(0));
    this->WriteMatrixToXML(layerxml, "Biases",  this -> GetBiasesAt(0));
 }
@@ -235,7 +235,7 @@ void TDenseLayer<Architecture_t>::ReadWeightsFromXML(void *parent)
    // Read layer weights and biases from XML
    this->ReadMatrixXML(parent,"Weights", this -> GetWeightsAt(0));
    this->ReadMatrixXML(parent,"Biases", this -> GetBiasesAt(0));
-   
+
 }
 
 } // namespace DNN

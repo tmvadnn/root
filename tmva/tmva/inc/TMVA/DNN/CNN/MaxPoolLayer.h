@@ -130,7 +130,7 @@ TMaxPoolLayer<Architecture_t>::TMaxPoolLayer(size_t batchSize, size_t inputDepth
                                              size_t height, size_t width, size_t outputNSlices, size_t outputNRows,
                                              size_t outputNCols, size_t frameHeight, size_t frameWidth,
                                              size_t strideRows, size_t strideCols, Scalar_t dropoutProbability)
-   : VGeneralLayer<Architecture_t>(batchSize, inputDepth, inputHeight, inputWidth, inputDepth, height, width, 0, 0, 0,
+   : VGeneralLayer<Architecture_t>(batchSize, inputDepth, inputHeight, inputWidth, inputDepth, height, width, "MAXPOOL", 0, 0, 0,
                                    0, 0, 0, outputNSlices, outputNRows, outputNCols, EInitialization::kZero),
      indexMatrix(), fFrameHeight(frameHeight), fFrameWidth(frameWidth), fStrideRows(strideRows),
      fStrideCols(strideCols), fNLocalViewPixels(inputDepth * frameHeight * frameWidth), fNLocalViews(height * width),
@@ -236,7 +236,7 @@ void TMaxPoolLayer<Architecture_t>::AddWeightsXMLTo(void *parent)
 template <typename Architecture_t>
 void TMaxPoolLayer<Architecture_t>::ReadWeightsFromXML(void * /*parent */)
 {
-   // all info is read before - nothing to do 
+   // all info is read before - nothing to do
 }
 
 } // namespace CNN

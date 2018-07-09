@@ -58,6 +58,7 @@ protected:
    size_t fWidth;  ///< The width of this layer.
 
    bool fIsTraining; ///< Flag indicatig the mode
+   TString fLayerType; ///< Type of layer
 
    std::vector<Matrix_t> fWeights; ///< The weights associated to the layer.
    std::vector<Matrix_t> fBiases;  ///< The biases associated to the layer.
@@ -73,13 +74,13 @@ protected:
 public:
    /*! Constructor */
    VGeneralLayer(size_t BatchSize, size_t InputDepth, size_t InputHeight, size_t InputWidth, size_t Depth,
-                 size_t Height, size_t Width, size_t WeightsNSlices, size_t WeightsNRows, size_t WeightsNCols,
+                 size_t Height, size_t Width, TString layerType, size_t WeightsNSlices, size_t WeightsNRows, size_t WeightsNCols,
                  size_t BiasesNSlices, size_t BiasesNRows, size_t BiasesNCols, size_t OutputNSlices, size_t OutputNRows,
                  size_t OutputNCols, EInitialization Init);
 
    /*! General Constructor with different weights dimension */
    VGeneralLayer(size_t BatchSize, size_t InputDepth, size_t InputHeight, size_t InputWidth, size_t Depth,
-                 size_t Height, size_t Width, size_t WeightsNSlices, std::vector<size_t> WeightsNRows,
+                 size_t Height, size_t Width, TString layerType, size_t WeightsNSlices, std::vector<size_t> WeightsNRows,
                  std::vector<size_t> WeightsNCols, size_t BiasesNSlices, std::vector<size_t> BiasesNRows,
                  std::vector<size_t> BiasesNCols, size_t OutputNSlices, size_t OutputNRows, size_t OutputNCols,
                  EInitialization Init);
@@ -144,6 +145,7 @@ public:
    size_t GetDepth() const { return fDepth; }
    size_t GetHeight() const { return fHeight; }
    size_t GetWidth() const { return fWidth; }
+   TString GetLayerType() const { return fLayerType; }
    bool IsTraining() const { return fIsTraining; }
 
    const std::vector<Matrix_t> &GetWeights() const { return fWeights; }
@@ -192,14 +194,15 @@ public:
    void SetDepth(size_t depth) { fDepth = depth; }
    void SetHeight(size_t height) { fHeight = height; }
    void SetWidth(size_t width) { fWidth = width; }
+   void SetLayerType(TString layerType) { fLayerType = layerType; }
    void SetIsTraining(bool isTraining) { fIsTraining = isTraining; }
 
    /// helper functions for XML
-   void WriteTensorToXML( void * node, const char * name, const std::vector<Matrix_t> & tensor); 
+   void WriteTensorToXML( void * node, const char * name, const std::vector<Matrix_t> & tensor);
    void WriteMatrixToXML( void * node, const char * name, const Matrix_t & matrix);
 
    void ReadMatrixXML( void * node, const char * name, Matrix_t & matrix);
-   
+
 };
 
 //
@@ -208,13 +211,13 @@ public:
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
 VGeneralLayer<Architecture_t>::VGeneralLayer(size_t batchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
-                                             size_t depth, size_t height, size_t width, size_t weightsNSlices,
-                                             size_t weightsNRows, size_t weightsNCols, size_t biasesNSlices,
-                                             size_t biasesNRows, size_t biasesNCols, size_t outputNSlices,
+                                             size_t depth, size_t height, size_t width, TString layerType,
+                                             size_t weightsNSlices, size_t weightsNRows, size_t weightsNCols,
+                                             size_t biasesNSlices, size_t biasesNRows, size_t biasesNCols, size_t outputNSlices,
                                              size_t outputNRows, size_t outputNCols, EInitialization init)
    : fBatchSize(batchSize), fInputDepth(inputDepth), fInputHeight(inputHeight), fInputWidth(inputWidth), fDepth(depth),
-     fHeight(height), fWidth(width), fIsTraining(true), fWeights(), fBiases(), fWeightGradients(), fBiasGradients(),
-     fOutput(), fActivationGradients(), fInit(init)
+     fHeight(height), fWidth(width), fLayerType(layerType), fIsTraining(true), fWeights(), fBiases(), fWeightGradients(),
+     fBiasGradients(), fOutput(), fActivationGradients(), fInit(init)
 {
 
    for (size_t i = 0; i < weightsNSlices; i++) {
@@ -236,13 +239,13 @@ VGeneralLayer<Architecture_t>::VGeneralLayer(size_t batchSize, size_t inputDepth
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
 VGeneralLayer<Architecture_t>::VGeneralLayer(size_t batchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
-                                             size_t depth, size_t height, size_t width, size_t weightsNSlices,
-                                             std::vector<size_t> weightsNRows, std::vector<size_t> weightsNCols,
+                                             size_t depth, size_t height, size_t width, TString layerType,
+                                             size_t weightsNSlices, std::vector<size_t> weightsNRows, std::vector<size_t> weightsNCols,
                                              size_t biasesNSlices, std::vector<size_t> biasesNRows,
                                              std::vector<size_t> biasesNCols, size_t outputNSlices, size_t outputNRows,
                                              size_t outputNCols, EInitialization init)
    : fBatchSize(batchSize), fInputDepth(inputDepth), fInputHeight(inputHeight), fInputWidth(inputWidth), fDepth(depth),
-     fHeight(height), fWidth(width), fIsTraining(true), fWeights(), fBiases(), fWeightGradients(), fBiasGradients(),
+     fHeight(height), fWidth(width), fLayerType(layerType), fIsTraining(true), fWeights(), fBiases(), fWeightGradients(), fBiasGradients(),
      fOutput(), fActivationGradients(), fInit(init)
 {
 
@@ -267,8 +270,8 @@ template <typename Architecture_t>
 VGeneralLayer<Architecture_t>::VGeneralLayer(VGeneralLayer<Architecture_t> *layer)
    : fBatchSize(layer->GetBatchSize()), fInputDepth(layer->GetInputDepth()), fInputHeight(layer->GetInputHeight()),
      fInputWidth(layer->GetInputWidth()), fDepth(layer->GetDepth()), fHeight(layer->GetHeight()),
-     fWidth(layer->GetWidth()), fIsTraining(layer->IsTraining()), fWeights(), fBiases(), fWeightGradients(),
-     fBiasGradients(), fOutput(), fActivationGradients(), fInit(layer->GetInitialization())
+     fWidth(layer->GetWidth()), fLayerType(layer->GetLayerType()), fIsTraining(layer->IsTraining()), fWeights(),
+     fBiases(), fWeightGradients(),fBiasGradients(), fOutput(), fActivationGradients(), fInit(layer->GetInitialization())
 {
    size_t weightsNSlices = (layer->GetWeights()).size();
    size_t weightsNRows = 0;
@@ -316,8 +319,8 @@ template <typename Architecture_t>
 VGeneralLayer<Architecture_t>::VGeneralLayer(const VGeneralLayer &layer)
    : fBatchSize(layer.fBatchSize), fInputDepth(layer.fInputDepth), fInputHeight(layer.fInputHeight),
      fInputWidth(layer.fInputWidth), fDepth(layer.fDepth), fHeight(layer.fHeight), fWidth(layer.fWidth),
-     fIsTraining(layer.fIsTraining), fWeights(), fBiases(), fWeightGradients(), fBiasGradients(), fOutput(),
-     fActivationGradients(), fInit(layer.fInit)
+     fLayerType(layer.fLayerType), fIsTraining(layer.fIsTraining), fWeights(), fBiases(),
+     fWeightGradients(), fBiasGradients(), fOutput(),fActivationGradients(), fInit(layer.fInit)
 {
    size_t weightsNSlices = layer.fWeights.size();
    size_t weightsNRows = 0;
@@ -454,9 +457,9 @@ auto VGeneralLayer<Architecture_t>::CopyBiases(const std::vector<Matrix_t> &othe
 template <typename Architecture_t>
 auto VGeneralLayer<Architecture_t>::WriteTensorToXML(void * node, const char * name, const std::vector<Matrix_t> & tensor) -> void
 {
-   auto xmlengine = gTools().xmlengine(); 
+   auto xmlengine = gTools().xmlengine();
    void* matnode = xmlengine.NewChild(node, 0, name);
-   if (tensor.size() == 0) return; 
+   if (tensor.size() == 0) return;
    xmlengine.NewAttr(matnode,0,"Depth", gTools().StringFromInt(tensor.size()) );
    // assume same number of rows and columns for every matrix in std::vector
    xmlengine.NewAttr(matnode,0,"Rows", gTools().StringFromInt(tensor[0].GetNrows()) );
@@ -467,7 +470,7 @@ auto VGeneralLayer<Architecture_t>::WriteTensorToXML(void * node, const char * n
       for (Int_t row = 0; row < mat.GetNrows(); row++) {
          for (Int_t col = 0; col < mat.GetNcols(); col++) {
             TString tmp = TString::Format( "%5.15e ", (mat)(row,col) );
-            s << tmp.Data(); 
+            s << tmp.Data();
          }
       }
    }
@@ -478,7 +481,7 @@ auto VGeneralLayer<Architecture_t>::WriteTensorToXML(void * node, const char * n
 template <typename Architecture_t>
 auto VGeneralLayer<Architecture_t>::WriteMatrixToXML(void * node, const char * name, const Matrix_t & matrix) -> void
 {
-   auto xmlengine = gTools().xmlengine(); 
+   auto xmlengine = gTools().xmlengine();
    void* matnode = xmlengine.NewChild(node, 0, name);
 
    xmlengine.NewAttr(matnode,0,"Rows", gTools().StringFromInt(matrix.GetNrows()) );
@@ -506,8 +509,8 @@ auto VGeneralLayer<Architecture_t>::ReadMatrixXML(void * node, const char * name
    gTools().ReadAttr(matrixXML, "Rows", rows);
    gTools().ReadAttr(matrixXML, "Columns", cols);
 
-   R__ASSERT((size_t) matrix.GetNrows() == rows); 
-   R__ASSERT((size_t) matrix.GetNcols() == cols); 
+   R__ASSERT((size_t) matrix.GetNrows() == rows);
+   R__ASSERT((size_t) matrix.GetNcols() == cols);
 
    const char * matrixString = gTools().xmlengine().GetNodeContent(matrixXML);
    std::stringstream matrixStringStream(matrixString);

@@ -491,7 +491,7 @@ int TMVAClassification( TString myMethodList = "" )
  "TANH,DENSE|1|LINEAR##RESHAPE|1|1|4|FLAT,DENSE|128|TANH,DENSE|128|TANH,DENSE|128|TANH,DENSE|1|LINEAR");
 
       // Training strategies.
-      TString training0("GeneratorLearningRate=1e-1,GeneratorMomentum=0.9,GeneratorRepetitions=1,"
+      TString training0("MaxEpochs=2000,GeneratorLearningRate=1e-1,GeneratorMomentum=0.9,GeneratorRepetitions=1,"
                         "GeneratorConvergenceSteps=20,GeneratorBatchSize=256,GeneratorTestRepetitions=10,"
                         "GeneratorWeightDecay=1e-4,GeneratorRegularization=L2,"
                         "GeneratorDropConfig=0.0+0.5+0.5+0.5, GeneratorMultithreading=True,"
@@ -499,7 +499,7 @@ int TMVAClassification( TString myMethodList = "" )
                         "DiscriminatorConvergenceSteps=20,DiscriminatorBatchSize=256,DiscriminatorTestRepetitions=10,"
                         "DiscriminatorWeightDecay=1e-4,DiscriminatorRegularization=L2,"
                         "DiscriminatorDropConfig=0.0+0.5+0.5+0.5, DiscriminatorMultithreading=True");
-      TString training1("GeneratorLearningRate=1e-2,GeneratorMomentum=0.9,GeneratorRepetitions=1,"
+      TString training1("MaxEpochs=2000,GeneratorLearningRate=1e-2,GeneratorMomentum=0.9,GeneratorRepetitions=1,"
                         "GeneratorConvergenceSteps=20,GeneratorBatchSize=256,GeneratorTestRepetitions=10,"
                         "GeneratorWeightDecay=1e-4,GeneratorRegularization=L2,"
                         "GeneratorDropConfig=0.0+0.0+0.0+0.0, GeneratorMultithreading=True,"
@@ -507,7 +507,7 @@ int TMVAClassification( TString myMethodList = "" )
                         "DiscriminatorConvergenceSteps=20,DiscriminatorBatchSize=256,DiscriminatorTestRepetitions=10,"
                         "DiscriminatorWeightDecay=1e-4,DiscriminatorRegularization=L2,"
                         "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True");
-      TString training2("GeneratorLearningRate=1e-3,GeneratorMomentum=0.0,GeneratorRepetitions=1,"
+      TString training2("MaxEpochs=2000,GeneratorLearningRate=1e-3,GeneratorMomentum=0.0,GeneratorRepetitions=1,"
                         "GeneratorConvergenceSteps=20,GeneratorBatchSize=256,GeneratorTestRepetitions=10,"
                         "GeneratorWeightDecay=1e-4,GeneratorRegularization=L2,"
                         "GeneratorDropConfig=0.0+0.0+0.0+0.0, GeneratorMultithreading=True,"
@@ -527,9 +527,9 @@ int TMVAClassification( TString myMethodList = "" )
 
       ganOptions.Append(":");
       ganOptions.Append(batchLayoutString);
-      ganOptions.Append (":"); 
+      ganOptions.Append (":");
       ganOptions.Append (layoutString);
-      ganOptions.Append (":"); 
+      ganOptions.Append (":");
       ganOptions.Append (trainingStrategyString);
 
       TString cpuOptions = ganOptions + ":Architecture=CPU";

@@ -266,7 +266,7 @@ void TTensorDataLoader<TMVAInput_t, TReference<Double_t>>::CopyTensorOutput(TMat
    const DataSetInfo &info = std::get<1>(fData);
    Int_t n = matrix.GetNcols();
 
-   for (size_t i = 0; i < fBatchSize; i++) {     
+   for (size_t i = 0; i < fBatchSize; i++) {
       size_t sampleIndex = *sampleIterator++;
       Event *event = std::get<0>(fData)[sampleIndex];
 
