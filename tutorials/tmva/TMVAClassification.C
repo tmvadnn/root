@@ -167,7 +167,7 @@ int TMVAClassification( TString myMethodList = "" )
    std::cout<<"Before preparing training data"<<std::endl;
    TFile *input(0);
    //TString fname = "./tmva_class_example.root";
-   TString fname = "/home/anushree/GSoC/DataCreation/mnist.root";
+   TString fname = "/home/anushree/GSoC/DataCreation/mnist_original1.root";
    if (!gSystem->AccessPathName( fname )) {
       input = TFile::Open( fname ); // check if file in local directory exists
    }
@@ -184,8 +184,8 @@ int TMVAClassification( TString myMethodList = "" )
 
    // Register the training and test trees
 
-   TTree *signalTree     = (TTree*)input->Get("train");
-   TTree *background     = (TTree*)input->Get("train");
+   TTree *signalTree     = (TTree*)input->Get("train_sig");
+   TTree *background     = (TTree*)input->Get("train_bkg");
 
    // Create a ROOT output file where TMVA will store ntuples, histograms, etc.
    TString outfileName( "TMVA.root" );
@@ -283,17 +283,17 @@ int TMVAClassification( TString myMethodList = "" )
    // Apply additional cuts on the signal and background samples (can be different)
    TCut mycuts = ""; // for example: TCut mycuts = "abs(var1)<0.5 && abs(var2-0.5)<1";
    TCut mycutb = ""; // for example: TCut mycutb = "abs(var1)<0.5";
-   
-   /*
+
+
    for (int i = 0; i < 28; ++i) {
       for (int j = 0; j < 28; ++j) {
          int ivar=i*28+j;
-         TString varName = TString::Format("var%d",ivar);
+         TString varName = TString::Format("x%d",ivar);
          dataloader->AddVariable(varName,'F');
       }
    }
-   */
-   dataloader->AddVariable("x",'F');
+
+   //dataloader->AddTarget("y",'F');
    // Tell the dataloader how to use the training and testing events
    //
    // If no numbers of events are given, half of the events in the tree are used
@@ -492,14 +492,16 @@ int TMVAClassification( TString myMethodList = "" )
       std::cout<<"In GAN condition inside the TMVAClassification file"<<std::endl;
 
       // Input Layout
-      TString inputLayoutString("InputLayout=1|28|28##1|1|784");
+      TString inputLayoutString("InputLayout=1|1|784##1|1|784");
 
       // Batch Layout
       TString batchLayoutString("BatchLayout=256|1|784##256|1|784");
 
       //General Layout
-      TString layoutString ("Layout=CONV|6|3|3|1|1|0|0|TANH,MAXPOOL|2|2|2|2,RESHAPE|FLAT,DENSE|100|TANH,"
-                        "DENSE|784|LINEAR##DENSE|128|TANH,DENSE|128|TANH,DENSE|128|TANH,DENSE|1|LINEAR");
+      //TString layoutString ("Layout=CONV|1|3|3|1|1|0|0|TANH,MAXPOOL|2|2|2|2,RESHAPE|FLAT,DENSE|100|TANH,"
+      //                  "DENSE|784|LINEAR##RESHAPE|1|1|784|FLAT,DENSE|128|TANH,DENSE|128|TANH,DENSE|128|TANH,DENSE|1|LINEAR");
+
+      TString layoutString ("Layout=RESHAPE|1|1|784|FLAT,DENSE|128|TANH,DENSE|128|TANH,DENSE|128|TANH,DENSE|784|LINEAR##RESHAPE|1|1|784|FLAT,DENSE|128|TANH,DENSE|128|TANH,DENSE|128|TANH,DENSE|1|LINEAR");
 
       // Training strategies.
       TString training0("MaxEpochs=2000,GeneratorLearningRate=1e-1,GeneratorMomentum=0.9,GeneratorRepetitions=1,"

@@ -83,6 +83,28 @@ void randomMatrix(AMatrix &X)
    }
 }
 
+/*
+//Copying matrix B to matrix A
+void copyMatrixGAN(TMatrixT<Double_t> &A, Matrix_t &B)
+{
+   size_t rows_A, cols_A;
+   rows_A = A.GetNrows();
+   cols_A = A.GetNcols();
+
+   size_t rows_B, cols_B;
+   rows_B = B.GetNrows();
+   cols_B = B.GetNcols();
+
+   R__ASSERT(rows_A==rows_B);
+   R__ASSERT(cols_A==cols_B);
+
+   for (size_t i = 0; i < rows; i++) {
+      for (size_t j = 0; j < cols; j++) {
+         A(i, j) = B(i,j);
+      }
+   }
+}
+*/
 namespace TMVA {
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -613,65 +635,52 @@ void MethodGAN::ParseBatchLayout()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-DeepNet_t MethodGAN::CombineGAN(DeepNet_t &generatorNet, DeepNet_t discriminatorNet, ELossFunction loss, EInitialization initialization,
-                                ERegularization regularization, Scalar_t weightDecay)
+void MethodGAN::CombineGAN(DeepNet_t &combinedDeepNet, DeepNet_t &generatorNet, DeepNet_t &discriminatorNet)
 {
-   DeepNet_t combinedDeepNet(generatorNet.GetBatchSize(), generatorNet.GetInputDepth(), generatorNet.GetInputHeight(), generatorNet.GetInputWidth(),
-                             generatorNet.GetBatchDepth(), generatorNet.GetBatchHeight(), generatorNet.GetBatchWidth(), loss, initialization, regularization, weightDecay);
-
-   // create a copy of DeepNet for evaluating but with batch size = 1
-   // fNet is the saved network and will be with CPU or Referrence architecture
-   combinedFNet = std::unique_ptr<DeepNetImpl_t>(new DeepNetImpl_t(1, generatorNet.GetInputDepth(), generatorNet.GetInputHeight(),
-                       generatorNet.GetInputWidth(), generatorNet.GetBatchDepth(), generatorNet.GetBatchHeight(), generatorNet.GetBatchWidth(),
-                       loss, initialization, regularization, weightDecay));
 
    for(size_t i = 0; i< generatorNet.GetDepth(); i++)
    {
       auto layer = generatorNet.GetLayerAt(i);
-
       if(layer->GetLayerType() == "CONV") {
-
          combinedDeepNet.AddConvLayer(dynamic_cast<TConvLayer<Architecture_t>*>(layer));
-         combinedFNet->AddConvLayer(dynamic_cast<TConvLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddConvLayer(dynamic_cast<TConvLayer<Architecture_t>*>(layer));
       } else if(layer->GetLayerType() == "MAXPOOL") {
          combinedDeepNet.AddMaxPoolLayer(dynamic_cast<TMaxPoolLayer<Architecture_t>*>(layer));
-         combinedFNet->AddMaxPoolLayer(dynamic_cast<TMaxPoolLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddMaxPoolLayer(dynamic_cast<TMaxPoolLayer<Architecture_t>*>(layer));
       } else if(layer->GetLayerType() == "DENSE") {
          combinedDeepNet.AddDenseLayer(dynamic_cast<TDenseLayer<Architecture_t>*>(layer));
-         combinedFNet->AddDenseLayer(dynamic_cast<TDenseLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddDenseLayer(dynamic_cast<TDenseLayer<Architecture_t>*>(layer));
       } else if(layer->GetLayerType() == "RESHAPE") {
          combinedDeepNet.AddReshapeLayer(dynamic_cast<TReshapeLayer<Architecture_t>*>(layer));
-         combinedFNet->AddReshapeLayer(dynamic_cast<TReshapeLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddReshapeLayer(dynamic_cast<TReshapeLayer<Architecture_t>*>(layer));
       } else if(layer->GetLayerType() == "RNN") {
          combinedDeepNet.AddBasicRNNLayer(dynamic_cast<TBasicRNNLayer<Architecture_t>*>(layer));
-         combinedFNet->AddBasicRNNLayer(dynamic_cast<TBasicRNNLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddBasicRNNLayer(dynamic_cast<TBasicRNNLayer<Architecture_t>*>(layer));
       }
     }
 
-   for(size_t i = 0; i< discriminatorNet.GetDepth(); i++)
+   for(size_t i = 1; i< discriminatorNet.GetDepth(); i++)
    {
       auto layer = discriminatorNet.GetLayerAt(i);
       layer->SetIsTraining(0);
 
       if(layer->GetLayerType() == "CONV") {
          combinedDeepNet.AddConvLayer(dynamic_cast<TConvLayer<Architecture_t>*>(layer));
-         combinedFNet->AddConvLayer(dynamic_cast<TConvLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddConvLayer(dynamic_cast<TConvLayer<Architecture_t>*>(layer));
       } else if(layer->GetLayerType() == "MAXPOOL") {
          combinedDeepNet.AddMaxPoolLayer(dynamic_cast<TMaxPoolLayer<Architecture_t>*>(layer));
-         combinedFNet->AddMaxPoolLayer(dynamic_cast<TMaxPoolLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddMaxPoolLayer(dynamic_cast<TMaxPoolLayer<Architecture_t>*>(layer));
       } else if(layer->GetLayerType() == "DENSE") {
          combinedDeepNet.AddDenseLayer(dynamic_cast<TDenseLayer<Architecture_t>*>(layer));
-         combinedFNet->AddDenseLayer(dynamic_cast<TDenseLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddDenseLayer(dynamic_cast<TDenseLayer<Architecture_t>*>(layer));
       } else if(layer->GetLayerType() == "RESHAPE") {
          combinedDeepNet.AddReshapeLayer(dynamic_cast<TReshapeLayer<Architecture_t>*>(layer));
-         combinedFNet->AddReshapeLayer(dynamic_cast<TReshapeLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddReshapeLayer(dynamic_cast<TReshapeLayer<Architecture_t>*>(layer));
       } else if(layer->GetLayerType() == "RNN") {
          combinedDeepNet.AddBasicRNNLayer(dynamic_cast<TBasicRNNLayer<Architecture_t>*>(layer));
-         combinedFNet->AddBasicRNNLayer(dynamic_cast<TBasicRNNLayer<Architecture_t>*>(layer));
+         //combinedFNet->AddBasicRNNLayer(dynamic_cast<TBasicRNNLayer<Architecture_t>*>(layer));
       }
    }
-
-   return combinedDeepNet;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -791,31 +800,67 @@ Bool_t MethodGAN::HasAnalysisType(Types::EAnalysisType type, UInt_t numberClasse
 
    return kFALSE;
 }
+
 ////////////////////////////////////////////////////////////////////////////////
-void MethodGAN::CreateDiscriminatorFakeData(std::vector<TMatrixT<Double_t>> &predTensor, TTensorDataLoader<TensorInput, Architecture_t> &trainingData, std::unique_ptr<DeepNetImpl_t> &Net)
+void MethodGAN::CreateDiscriminatorFakeData(std::vector<TMatrixT<Double_t>> &predTensor, TMatrixT<Double_t> &outputMatrix, TMatrixT<Double_t> &weights, TTensorDataLoader<TensorInput, Architecture_t> &trainingData, DeepNet_t &genDeepNet, DeepNet_t &disDeepNet, size_t nSamples, size_t classLabel)
 {
-  std::cout << "YO! We are outside the loop in CreateDiscriminatorFakeData()!!!!!";
+   //TODO: Remove this once discriminatorOutputMatrix is added
+   // Create the output
+   for (size_t i = 0; i < nSamples; i++)
+   {
+     // Class of fake data is 1
+     outputMatrix(i, 0) = classLabel;
+   }
 
-  // Compute training error.
-  for (auto batch : trainingData) {
-     std::cout << "YO! We are inside the loop in CreateDiscriminatorFakeData()!!!!!!!!!";
-     //std::vector<Matrix_t> inputTensor{};
-     //inputTensor.emplace_back(batch.GetInput());
-     auto inputTensor = batch.GetInput();
-     auto weights = batch.GetWeights();
+   // Create the weights
+   for (size_t i = 0; i < nSamples; i++)
+   {
+      weights(i, 0) = 1;
+   }
 
-     int nb = Net->GetBatchSize();
-     int noutput = Net->GetOutputWidth();
+   for (size_t i = 0; i < nSamples; i++)
+   {
+      predTensor.emplace_back(disDeepNet.GetBatchSize(), disDeepNet.GetBatchWidth());
+   }
 
-     //TODO:Need to overload Prediction function as tensor type needed (after Deconvolution implementation)
-     Matrix_t YHat(nb, noutput);
-     Net->Prediction( YHat, inputTensor, fOutputFunction);
-     predTensor.emplace_back(YHat);
-  }
+   size_t nval = genDeepNet.GetBatchSize();
+   size_t noutput = genDeepNet.GetOutputWidth();
+   size_t count = 0;
+
+
+
+   for (auto batch : trainingData) {
+
+      auto inputTensor = batch.GetInput();
+      auto weights = batch.GetWeights();
+
+      //TODO:Need to overload Prediction function as tensor type needed (after Deconvolution implementation)
+      Matrix_t YHat(nval, noutput);
+      genDeepNet.Prediction(YHat, inputTensor, fOutputFunction);
+
+      size_t rows_A, cols_A;
+      rows_A = predTensor[count].GetNrows();
+      cols_A = predTensor[count].GetNcols();
+
+      size_t rows_B, cols_B;
+      rows_B = YHat.GetNrows();
+      cols_B = YHat.GetNcols();
+
+      R__ASSERT(rows_A==rows_B);
+      R__ASSERT(cols_A==cols_B);
+
+      for (size_t i = 0; i < rows_A; i++) {
+         for (size_t j = 0; j < cols_A; j++) {
+            predTensor[count](i, j) = YHat(i,j);
+         }
+      }
+
+      count++;
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-Double_t MethodGAN::ComputeLoss(TTensorDataLoader<TensorInput, Architecture_t> generalDataloader, DeepNet_t DeepNet)
+Double_t MethodGAN::ComputeLoss(TTensorDataLoader<TensorInput, Architecture_t> &generalDataloader, DeepNet_t &DeepNet)
 {
    Double_t error = 0.0;
 
@@ -832,7 +877,7 @@ Double_t MethodGAN::ComputeLoss(TTensorDataLoader<TensorInput, Architecture_t> g
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-Double_t MethodGAN::ComputeLoss(TTensorDataLoader<TMVAInput_t, Architecture_t> generalDataloader, DeepNet_t DeepNet)
+Double_t MethodGAN::ComputeLoss(TTensorDataLoader<TMVAInput_t, Architecture_t> &generalDataloader, DeepNet_t &DeepNet)
 {
    Double_t error = 0.0;
 
@@ -852,7 +897,7 @@ Double_t MethodGAN::ComputeLoss(TTensorDataLoader<TMVAInput_t, Architecture_t> g
  void MethodGAN::CreateNoisyMatrices(std::vector<TMatrixT<Double_t>> &inputTensor, TMatrixT<Double_t> &outputMatrix, TMatrixT<Double_t> &weights, DeepNet_t &DeepNet, size_t nSamples,
                                                    size_t classLabel)
 {
-   
+
    for (size_t i = 0; i < nSamples; i++)
    {
       inputTensor.emplace_back(DeepNet.GetBatchHeight(), DeepNet.GetBatchWidth());
@@ -926,7 +971,6 @@ void MethodGAN::Train()
    // Determine the number of training and testing examples
    size_t nTrainingSamples = GetEventCollection(Types::kTraining).size();
    size_t nTestingSamples = GetEventCollection(Types::kTesting).size();
-   std::cout << "nTestingSamples value: " << nTestingSamples;
 
    size_t trainingPhase = 1;
    for (GANTTrainingSettings &settings : this->GetTrainingSettings()) {
@@ -938,7 +982,7 @@ void MethodGAN::Train()
 
       size_t maxEpochs = settings.maxEpochs;
       // After the processing of the options, initialize the master deep net
-      size_t generatorBatchSize = settings.discriminatorBatchSize;
+      size_t generatorBatchSize = settings.generatorBatchSize;
       size_t discriminatorBatchSize = settings.discriminatorBatchSize;
 
       // Should be replaced by actual implementation. No support for this now.
@@ -1058,11 +1102,13 @@ void MethodGAN::Train()
          return;
       }
 
-      DeepNet_t generatorDeepNet(generatorBatchSize, generatorInputDepth, generatorInputHeight, generatorInputWidth, generatorBatchDepth, generatorBatchHeight, generatorBatchWidth, generatorJ, generatorI, generatorR, generatorWeightDecay);
+      DeepNet_t generatorDeepNet(generatorBatchSize, generatorInputDepth, generatorInputHeight, generatorInputWidth, generatorBatchDepth, generatorBatchHeight,
+                                 generatorBatchWidth, generatorJ, generatorI, generatorR, generatorWeightDecay);
 
       // create a copy of DeepNet for evaluating but with batch size = 1
       // fNet is the saved network and will be with CPU or Referrence architecture
-      generatorFNet = std::unique_ptr<DeepNetImpl_t>(new DeepNetImpl_t(1, generatorInputDepth, generatorInputHeight, generatorInputWidth, generatorBatchDepth, generatorBatchHeight, generatorBatchWidth, generatorJ, generatorI, generatorR, generatorWeightDecay));
+      generatorFNet = std::unique_ptr<DeepNetImpl_t>(new DeepNetImpl_t(1, generatorInputDepth, generatorInputHeight, generatorInputWidth, generatorBatchDepth,
+                                                     generatorBatchHeight, generatorBatchWidth, generatorJ, generatorI, generatorR, generatorWeightDecay));
 
       // Initialize the vector of slave nets
       std::vector<DeepNet_t> generatorNets{};
@@ -1083,8 +1129,6 @@ void MethodGAN::Train()
       DNN::TDLGradientDescent<Architecture_t> generatorMinimizer(settings.generatorLearningRate, settings.generatorConvergenceSteps,
                                                         settings.generatorTestInterval);
 
-      std::cout << "After printing the deep neural networks";
-
       // Loading the training and testing datasets
       TMVAInput_t discriminatorTrainingTuple = std::tie(GetEventCollection(Types::kTraining), DataInfo());
       TensorDataLoader_t discriminatorTrainingData(discriminatorTrainingTuple, nTrainingSamples, discriminatorDeepNet.GetBatchSize(),
@@ -1096,21 +1140,12 @@ void MethodGAN::Train()
                                      discriminatorDeepNet.GetBatchDepth(), discriminatorDeepNet.GetBatchHeight(), discriminatorDeepNet.GetBatchWidth(),
                                      discriminatorDeepNet.GetOutputWidth(), nThreads);
 
-      std::cout << "After creating discriminator Training data";
-
       //Creating noise matrices for input to generator
 
-      //size_t nChannels = 3;
-      //size_t nImgHeight = 227;
-      //size_t nImgWidth = 227;
-
-      //size_t batchDepth = batchSize;
-      //size_t batchHeight = nChannels;
-      //size_t batchWidth = nImgHeight * nImgWidth;
       size_t nOutputs = 1;
 
-      //Class Label is 1 for fake data
-      size_t fakeClassLabel = 1;
+      //Class Label is 0 for fake data
+      size_t fakeClassLabel = 0.0;
 
       TMatrixT<Double_t> generatorTrainingOutputMatrix(nTrainingSamples, nOutputs);
       TMatrixT<Double_t> generatorTrainingWeights(nTrainingSamples, 1);
@@ -1124,17 +1159,21 @@ void MethodGAN::Train()
       std::vector<TMatrixT<Double_t>> generatorTestingInputTensor;
       generatorTestingInputTensor.reserve(nTestingSamples);
 
-      std::cout << "Before creating generator noisy data";
-
       CreateNoisyMatrices(generatorTrainingInputTensor, generatorTrainingOutputMatrix, generatorTrainingWeights, generatorDeepNet, nTrainingSamples, fakeClassLabel);
+
+      size_t weightRowVal = generatorTrainingWeights.GetNrows();
+      size_t weightColVal = generatorTrainingWeights.GetNcols();
+      size_t sizeInputTensor = generatorTrainingInputTensor.size();
+      size_t inputTensorRowVal = generatorTrainingInputTensor[0].GetNrows();
+      size_t inputTensorColVal = generatorTrainingInputTensor[0].GetNcols();
 
       TensorInput generatorTrainingTuple(generatorTrainingInputTensor, generatorTrainingOutputMatrix, generatorTrainingWeights);
 
       // Loading the training and testing datasets
       TTensorDataLoader<TensorInput, Architecture_t> generatorTrainingData(generatorTrainingTuple, nTrainingSamples, generatorDeepNet.GetBatchSize(),
                                       generatorDeepNet.GetBatchDepth(), generatorDeepNet.GetBatchHeight(), generatorDeepNet.GetBatchWidth(),
-                                      generatorDeepNet.GetOutputWidth(), nThreads);
-      
+                                      discriminatorDeepNet.GetOutputWidth(), nThreads);
+
       CreateNoisyMatrices(generatorTestingInputTensor, generatorTestingOutputMatrix, generatorTestingWeights, generatorDeepNet, nTestingSamples, fakeClassLabel);
 
       TensorInput generatorTestingTuple(generatorTestingInputTensor, generatorTestingOutputMatrix, generatorTestingWeights);
@@ -1143,16 +1182,9 @@ void MethodGAN::Train()
       TTensorDataLoader<TensorInput, Architecture_t> generatorTestingData(generatorTestingTuple, nTestingSamples, generatorDeepNet.GetBatchSize(),
                                       generatorDeepNet.GetBatchDepth(), generatorDeepNet.GetBatchHeight(), generatorDeepNet.GetBatchWidth(),
                                       generatorDeepNet.GetOutputWidth(), nThreads);
-      
+
 
       size_t generatorBatchesInEpoch = nTrainingSamples / generatorDeepNet.GetBatchSize();
-      
-      //for(size_t i=0; i< generatorBatchesInEpoch; i++) {
-        for(auto batch : generatorTrainingData){
-         std::cout << "Bello! Outside CreateNoisyDataLoader()!! :P";
-      }
-
-      //std::cout << "After creating generator noisy data";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ///////Discriminator Training
@@ -1161,43 +1193,16 @@ void MethodGAN::Train()
       // Initialize the vector of batches, one batch for one slave network
       std::vector<TTensorBatch<Architecture_t>> discriminatorBatches{};
 
-      bool discriminatorConverged = false;
       // count the steps until the convergence
       size_t discriminatorStepCount = 0;
       size_t discriminatorBatchesInEpoch = nTrainingSamples / discriminatorDeepNet.GetBatchSize();
 
-      // start measuring
-      std::chrono::time_point<std::chrono::system_clock> dis_tstart, dis_tend;
-      dis_tstart = std::chrono::system_clock::now();
-
-      if (!fInteractive) {
-         Log() << std::setw(10) << "Epoch"
-               << " | " << std::setw(12) << "Train Err." << std::setw(12) << "Test  Err." << std::setw(12) << "GFLOP/s"
-               << std::setw(16) << "time(s)/epoch" << std::setw(12) << "Conv. Steps" << Endl;
-         std::string separator(62, '-');
-         Log() << separator << Endl;
-      }
-
       // Initialize the vector of batches, one batch for one slave network
       std::vector<TTensorBatch<Architecture_t>> generatorBatches{};
 
-      bool generatorConverged = false;
       // count the steps until the convergence
       size_t generatorStepCount = 0;
       //size_t generatorBatchesInEpoch = nTrainingSamples / generatorDeepNet.GetBatchSize();
-
-      // start measuring
-      std::chrono::time_point<std::chrono::system_clock> gen_tstart, gen_tend;
-      gen_tstart = std::chrono::system_clock::now();
-
-      if (!fInteractive) {
-         Log() << std::setw(10) << "Epoch"
-               << " | " << std::setw(12) << "Train Err." << std::setw(12) << "Test  Err." << std::setw(12) << "GFLOP/s"
-               << std::setw(16) << "time(s)/epoch" << std::setw(12) << "Conv. Steps" << Endl;
-         std::string separator(62, '-');
-         Log() << separator << Endl;
-      }
-
 
       Double_t disMinTestError = 0;
       // use discriminator with 0 seed to get always different values
@@ -1207,57 +1212,54 @@ void MethodGAN::Train()
       // use generator with 0 seed to get always different values
       RandomGenerator<TRandom3> genRng(0);
 
+      //execute all epochs
       for (size_t epoch = 0; epoch < maxEpochs; ++epoch) {
 
-         //while (!discriminatorConverged) {
-         //discriminatorStepCount++;
+         discriminatorStepCount++;
          discriminatorTrainingData.Shuffle(disRng);
 
-         //generatorStepCount++;
-         //generatorTrainingData->Shuffle(genRng);
+         generatorStepCount++;
+         generatorTrainingData.Shuffle(genRng);
 
-         // execute all epochs
-         //for (size_t i = 0; i < discriminatorBatchesInEpoch; i += nThreads) {
-         for (auto discriminatorMy_batch : discriminatorTrainingData/*size_t i = 0; i < discriminatorBatchesInEpoch; ++i*/ ) {
-            //auto discriminatorMy_batch = discriminatorTrainingData.GetTensorBatch();
+         // execute one epoch on discriminator real data
+         for (auto discriminatorMy_batch : discriminatorTrainingData) {
 
             // execute one minimization step
             // StepMomentum is currently not written for single thread, TODO write it
             if (settings.discriminatorMomentum > 0.0) {
-               //minimizer.StepMomentum(deepNet, nets, batches, settings.momentum);
                discriminatorMinimizer.Step(discriminatorDeepNet, discriminatorMy_batch.GetInput(), discriminatorMy_batch.GetOutput(), discriminatorMy_batch.GetWeights());
-            } else {
-               //minimizer.Step(deepNet, nets, batches);
+            }
+            else {
                discriminatorMinimizer.Step(discriminatorDeepNet, discriminatorMy_batch.GetInput(), discriminatorMy_batch.GetOutput(), discriminatorMy_batch.GetWeights());
             }
          }
-         //}
+
+         TMatrixT<Double_t> discriminatorTrainingOutputMatrix(nTrainingSamples, nOutputs);
+         TMatrixT<Double_t> discriminatorTrainingWeights(nTrainingSamples, 1);
 
          std::vector<TMatrixT<Double_t>> discriminatorTrainingPredTensor;
 
-         CreateDiscriminatorFakeData(discriminatorTrainingPredTensor, generatorTrainingData, generatorFNet);
+         CreateDiscriminatorFakeData(discriminatorTrainingPredTensor, discriminatorTrainingOutputMatrix, discriminatorTrainingWeights,
+                                     generatorTrainingData, generatorDeepNet, discriminatorDeepNet, nTrainingSamples, fakeClassLabel);
 
-         TensorInput discriminatorFakeTrainingTuple(discriminatorTrainingPredTensor, generatorTrainingOutputMatrix, generatorTrainingWeights);
+         TensorInput discriminatorFakeTrainingTuple(discriminatorTrainingPredTensor, discriminatorTrainingOutputMatrix, discriminatorTrainingWeights);
 
-         TTensorDataLoader<TensorInput, Architecture_t> discriminatorFakeTrainingData(discriminatorFakeTrainingTuple, nTrainingSamples, generatorDeepNet.GetBatchSize(),
-                                                                                      generatorDeepNet.GetBatchDepth(), generatorDeepNet.GetBatchHeight(), generatorDeepNet.GetBatchWidth(),
-                                                                                      generatorDeepNet.GetOutputWidth(), nThreads);
+         TTensorDataLoader<TensorInput, Architecture_t> discriminatorFakeTrainingData(discriminatorFakeTrainingTuple, nTrainingSamples, discriminatorDeepNet.GetBatchSize(),
+                                                                                      discriminatorDeepNet.GetBatchDepth(), discriminatorDeepNet.GetBatchHeight(),
+                                                                                      discriminatorDeepNet.GetBatchWidth(), discriminatorDeepNet.GetOutputWidth(), nThreads);
 
          //TODO: Need to add the option to change the discriminatorBatchesInEpoch to be varying for fake data
-         for (auto discriminatorMy_fakeBatch : discriminatorFakeTrainingData/*size_t i = 0; i < discriminatorBatchesInEpoch; ++i*/ ) {
-
-            //auto discriminatorMy_fakeBatch = discriminatorFakeTrainingData.GetTensorBatch();
+         for (auto discriminatorMy_fakeBatch : discriminatorFakeTrainingData) {
 
             // execute one minimization step
             // StepMomentum is currently not written for single thread, TODO write it
             if (settings.discriminatorMomentum > 0.0) {
-               //minimizer.StepMomentum(deepNet, nets, batches, settings.momentum);
                discriminatorMinimizer.Step(discriminatorDeepNet, discriminatorMy_fakeBatch.GetInput(), discriminatorMy_fakeBatch.GetOutput(), discriminatorMy_fakeBatch.GetWeights());
             } else {
-               //minimizer.Step(deepNet, nets, batches);
                discriminatorMinimizer.Step(discriminatorDeepNet, discriminatorMy_fakeBatch.GetInput(), discriminatorMy_fakeBatch.GetOutput(), discriminatorMy_fakeBatch.GetWeights());
             }
          }
+
 
          /// COMPUTE TRAINING ERROR FOR DISCRIMINATOR
          Double_t discriminatorTrainingError = 0.0;
@@ -1266,71 +1268,87 @@ void MethodGAN::Train()
          //TODO: Change to incorporate varying nTrainingSamples
          discriminatorTrainingError /= (Double_t)(2*nTrainingSamples / settings.discriminatorBatchSize);
 
+         if (!fInteractive) {
+               Log() << std::setw(10) << "Epoch"
+                     << " | " << std::setw(12) << "Discriminator Train Err." << Endl;
+               std::string separator(62, '-');
+               Log() << separator << Endl;
+         }
+
+         Log() << std::setw(10) << discriminatorStepCount << " | " << std::setw(12) << discriminatorTrainingError
+               << Endl;
+
          if ((discriminatorStepCount % discriminatorMinimizer.GetTestInterval()) == 0) {
 
-            dis_tstart = std::chrono::system_clock::now();
-            std::chrono::time_point<std::chrono::system_clock> dis_t1,dis_t2;
-
-            dis_t1 = std::chrono::system_clock::now();
-
+            /*
             /// COMPUTE TESTING ERROR FOR DISCRIMINATOR
             Double_t discriminatorTestingError = 0.0;
             //TODO: Change to incorporate varying nTrainingSamples
             discriminatorTestingError += ComputeLoss(discriminatorTestingData, discriminatorDeepNet);
-            std::cout<< "nTestingSamples before passing on to CreateDiscriminatorFakeData: " << nTestingSamples;
+
+            TMatrixT<Double_t> discriminatorTestingOutputMatrix(nTestingSamples, nOutputs);
+            TMatrixT<Double_t> discriminatorTestingWeights(nTestingSamples, 1);
 
             std::vector<TMatrixT<Double_t>> discriminatorTestingPredTensor;
 
-            CreateDiscriminatorFakeData(discriminatorTestingPredTensor, generatorTestingData, generatorFNet);
+            CreateDiscriminatorFakeData(discriminatorTestingPredTensor, discriminatorTestingOutputMatrix, discriminatorTestingWeights, generatorTestingData, generatorDeepNet, discriminatorDeepNet, nTestingSamples, fakeClassLabel);
 
-            TensorInput discriminatorFakeTestingTuple(discriminatorTestingPredTensor, generatorTestingOutputMatrix, generatorTestingWeights);
+            TensorInput discriminatorFakeTestingTuple(discriminatorTestingPredTensor, discriminatorTestingOutputMatrix, discriminatorTestingWeights);
 
-            TTensorDataLoader<TensorInput, Architecture_t> discriminatorFakeTestingData(discriminatorFakeTestingTuple, nTestingSamples, generatorDeepNet.GetBatchSize(),
-                      generatorDeepNet.GetBatchDepth(), generatorDeepNet.GetBatchHeight(), generatorDeepNet.GetBatchWidth(),
-                      generatorDeepNet.GetOutputWidth(), nThreads);
+            TTensorDataLoader<TensorInput, Architecture_t> discriminatorFakeTestingData(discriminatorFakeTestingTuple, nTestingSamples, discriminatorDeepNet.GetBatchSize(),
+                      discriminatorDeepNet.GetBatchDepth(), discriminatorDeepNet.GetBatchHeight(), discriminatorDeepNet.GetBatchWidth(),
+                      discriminatorDeepNet.GetOutputWidth(), nThreads);
 
             discriminatorTestingError += ComputeLoss(discriminatorFakeTestingData, discriminatorDeepNet);
             discriminatorTestingError /= (Double_t)(2*nTestingSamples / settings.discriminatorBatchSize);
 
-            // stop measuring
-            dis_tend = std::chrono::system_clock::now();
 
-            // Compute numerical throughput.
-            std::chrono::duration<double> dis_elapsed_seconds = dis_tend - dis_tstart;
-            std::chrono::duration<double> dis_elapsed1 = dis_t1 - dis_tstart;
-            std::chrono::duration<double> dis_elapsed2 = dis_t2 - dis_tstart;
+            //discriminatorConverged = discriminatorStepCount >= settings.maxEpochs;
 
-            double dis_seconds = dis_elapsed_seconds.count();
-            double dis_nFlops = (double)(settings.discriminatorTestInterval * discriminatorBatchesInEpoch);
+            if (!fInteractive) {
+               Log() << std::setw(10) << "Epoch"
+                     << " | " << std::setw(12) << "Discriminator Test Err." << Endl;
+               std::string separator(62, '-');
+               Log() << separator << Endl;
+            }
 
-            discriminatorConverged = discriminatorStepCount >= settings.maxEpochs;
-
-            Log() << std::setw(10) << discriminatorStepCount << " | " << std::setw(12) << discriminatorTrainingError << std::setw(12) << dis_nFlops / dis_seconds << std::setw(12)
-                  << std::setw(12) << dis_seconds/settings.discriminatorTestInterval
-                  << std::setw(12) << discriminatorMinimizer.GetConvergenceCount()
-                  << std::setw(12) << dis_elapsed1.count()
-                  << std::setw(12) << dis_elapsed2.count()
-                  << std::setw(12) << dis_seconds
-                  << Endl;
+            Log() << std::setw(10) << discriminatorStepCount << " | " << std::setw(12) << discriminatorTestingError
+                  << Endl;*/
            }
 
            // TODO: Instead of creating network repeatedly, just update the new weights
+
+           // create a copy of DeepNet for evaluating but with batch size = 1
+           // fNet is the saved network and will be with CPU or Referrence architecture
+           //combinedFNet = std::unique_ptr<DeepNetImpl_t>(new DeepNetImpl_t(1, generatorNet.GetInputDepth(), generatorNet.GetInputHeight(),
+           //            generatorNet.GetInputWidth(), generatorNet.GetBatchDepth(), generatorNet.GetBatchHeight(), generatorNet.GetBatchWidth(),
+           //            loss, initialization, regularization, weightDecay));
+
            //Create combined Generator and Discriminator DeepNet_t
-           DeepNet_t combinedDeepNet = CombineGAN(generatorDeepNet, discriminatorDeepNet, discriminatorJ, generatorI, generatorR, generatorWeightDecay);
+           DeepNet_t combinedDeepNet(generatorDeepNet.GetBatchSize(), generatorDeepNet.GetInputDepth(), generatorDeepNet.GetInputHeight(), generatorDeepNet.GetInputWidth(),
+                             generatorDeepNet.GetBatchDepth(), generatorDeepNet.GetBatchHeight(), generatorDeepNet.GetBatchWidth(), discriminatorJ, generatorI, generatorR, generatorWeightDecay);
 
-           for (auto generatorMy_batch : generatorTrainingData/*size_t i = 0; i < generatorBatchesInEpoch; ++i*/ ) {
+           //std::cout << "***** Combined Deep Learning Network *****\n";
+           CombineGAN(combinedDeepNet, generatorDeepNet, discriminatorDeepNet);
 
-              //auto generatorMy_batch = generatorTrainingData.GetTensorBatch();
+           //combinedDeepNet.Print();
+
+           for (auto generatorMy_batch : generatorTrainingData) {
+
+             auto input = generatorMy_batch.GetInput();
+             auto output = generatorMy_batch.GetOutput();
+             auto weights = generatorMy_batch.GetWeights();
 
              // execute one minimization step
              // StepMomentum is currently not written for single thread, TODO write it
              if (settings.generatorMomentum > 0.0) {
                 //minimizer.StepMomentum(generatorDeepNet, nets, batches, settings.momentum);
-                generatorMinimizer.Step(combinedDeepNet, generatorMy_batch.GetInput(), generatorMy_batch.GetOutput(), generatorMy_batch.GetWeights());
+                generatorMinimizer.Step(combinedDeepNet, input, output, weights);
              }  else {
                 //minimizer.Step(generatorDeepNet, nets, batches);
-                generatorMinimizer.Step(combinedDeepNet, generatorMy_batch.GetInput(), generatorMy_batch.GetOutput(), generatorMy_batch.GetWeights());
+                generatorMinimizer.Step(combinedDeepNet, input, output, weights);
              }
+
            }
          //}
 
@@ -1340,13 +1358,17 @@ void MethodGAN::Train()
          //TODO: Change to incorporate varying nTrainingSamples
          generatorTrainingError /= (Double_t)(nTrainingSamples / settings.generatorBatchSize);
 
+         if (!fInteractive) {
+               Log() << std::setw(10) << "Epoch"
+                     << " | " << std::setw(12) << "Generator Train Err." << Endl;
+               std::string separator(62, '-');
+               Log() << separator << Endl;
+            }
+
+            Log() << std::setw(10) << generatorStepCount << " | " << std::setw(12) << generatorTrainingError
+                  << Endl;
 
          if ((generatorStepCount % generatorMinimizer.GetTestInterval()) == 0) {
-
-            gen_tstart = std::chrono::system_clock::now();
-            std::chrono::time_point<std::chrono::system_clock> gen_t1,gen_t2;
-
-            gen_t1 = std::chrono::system_clock::now();
 
             /// COMPUTE TESTING ERROR FOR GENERATOR
             Double_t generatorTestingError = 0.0;
@@ -1354,24 +1376,14 @@ void MethodGAN::Train()
             generatorTestingError = ComputeLoss(discriminatorTestingData, combinedDeepNet);
             generatorTestingError /= (Double_t)(nTestingSamples / settings.generatorBatchSize);
 
-            // stop measuring
-            gen_tend = std::chrono::system_clock::now();
+            if (!fInteractive) {
+               Log() << std::setw(10) << "Epoch"
+                     << " | " << std::setw(12) << "Generator Test Err." << Endl;
+               std::string separator(62, '-');
+               Log() << separator << Endl;
+            }
 
-            // Compute numerical throughput.
-            std::chrono::duration<double> gen_elapsed_seconds = gen_tend - gen_tstart;
-            std::chrono::duration<double> gen_elapsed1 = gen_t1 - gen_tstart;
-            std::chrono::duration<double> gen_elapsed2 = gen_t2 - gen_tstart;
-
-            double gen_seconds = gen_elapsed_seconds.count();
-            double gen_nFlops = (double)(settings.generatorTestInterval * generatorBatchesInEpoch);
-            // nFlops *= net.GetNFlops() * 1e-9;
-
-            Log() << std::setw(10) << generatorStepCount << " | " << std::setw(12) << generatorTrainingError << std::setw(12) << gen_nFlops / gen_seconds << std::setw(12)
-                  << std::setw(12) << gen_seconds/settings.generatorTestInterval
-                  << std::setw(12) << generatorMinimizer.GetConvergenceCount()
-                  <<  std::setw(12) << gen_elapsed1.count()
-                  << std::setw(12) << gen_elapsed2.count()
-                  << std::setw(12) << gen_seconds
+            Log() << std::setw(10) << generatorStepCount << " | " << std::setw(12) << generatorTestingError
                   << Endl;
 
             }

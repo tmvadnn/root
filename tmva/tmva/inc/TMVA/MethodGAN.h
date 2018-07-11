@@ -200,11 +200,10 @@ public:
    Double_t GetMvaValueGAN(std::unique_ptr<DeepNetImpl_t> & fNet, Double_t *err = 0, Double_t *errUpper = 0);
 
    void CreateNoisyMatrices(std::vector<TMatrixT<Double_t>> &inputTensor, TMatrixT<Double_t> &outputMatrix, TMatrixT<Double_t> &weights, DeepNet_t &DeepNet, size_t nSamples, size_t classLabel);
-   Double_t ComputeLoss(TTensorDataLoader<TensorInput, Architecture_t> generalDataloader, DeepNet_t DeepNet);
-   Double_t ComputeLoss(TTensorDataLoader<TMVAInput_t, Architecture_t> generalDataloader, DeepNet_t DeepNet);
-   void CreateDiscriminatorFakeData(std::vector<TMatrixT<Double_t>> &predTensor, TTensorDataLoader<TensorInput, Architecture_t> &trainingData, std::unique_ptr<DeepNetImpl_t> &Net);
-   DeepNet_t CombineGAN(DeepNet_t &generatorNet, DeepNet_t discriminatorNet, ELossFunction loss, EInitialization initialization,
-                                                   ERegularization regularization, Scalar_t weightDecay);
+   Double_t ComputeLoss(TTensorDataLoader<TensorInput, Architecture_t> &generalDataloader, DeepNet_t &DeepNet);
+   Double_t ComputeLoss(TTensorDataLoader<TMVAInput_t, Architecture_t> &generalDataloader, DeepNet_t &DeepNet);
+   void CreateDiscriminatorFakeData(std::vector<TMatrixT<Double_t>> &predTensor,  TMatrixT<Double_t> &outputMatrix, TMatrixT<Double_t> &weights, TTensorDataLoader<TensorInput, Architecture_t> &trainingData, DeepNet_t &genDeepNet, DeepNet_t &disDeepNet, size_t nSamples, size_t classLabel);
+   void CombineGAN(DeepNet_t &combinedDeepNet, DeepNet_t &generatorNet, DeepNet_t &discriminatorNet);
 
    //void AddWeightsXMLToGAN(std::unique_ptr<DeepNetImpl_t> & fNet, void * parent);
 
