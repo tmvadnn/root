@@ -133,11 +133,65 @@ auto testDownsample(const typename Architecture::Matrix_t &A, const typename Arc
    return true;
 }
 
+/** Back propagate the activation gradients through the max-pooling layer and check whether the
++ * computed gradients are equal to the matrix A. */
+//______________________________________________________________________________
+template <typename Architecture>
+auto testPoolingBackward(const typename Architecture::Matrix_t &input, const typename Architecture::Matrix_t &output,
+                         const typename Architecture::Matrix_t &indexMatrix, size_t imgHeight, size_t imgWidth,
+                         size_t fltHeight, size_t fltWidth, size_t strideRows, size_t strideCols, size_t nLocalViews,
+                         double epsilon = 0.01) -> bool {
+    size_t depth = output.GetNrows();
+
+    typename Architecture::Matrix_t ABack(output.GetNrows(), output.GetNcols());
+    Architecture::MaxPoolLayerBackward(ABack, input, indexMatrix, imgHeight, imgWidth, fltHeight, fltWidth,
+                                       strideRows, strideCols, nLocalViews);
+
+    /* Needed to support double (almost) equality */
+    auto almostEqual = [epsilon](double a, double b) {
+        // Using a magic EPSILON value (makes sense for the existing tests).
+        return fabs(a - b) < epsilon;
+    };
+
+    for (size_t d = 0; d < depth; d++) {
+        for (size_t i = 0; i < nLocalViews; i++) {
+            if (!almostEqual(ABack(d, i), output(d, i))) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/** Reshape the matrix A using the Reshape function and compare it to
+ *  the result in matrix B. */
+//______________________________________________________________________________
+template <typename Architecture_t>
+auto testReshape(const typename Architecture_t::Matrix_t &A, const typename Architecture_t::Matrix_t &B) -> bool
+{
+
+    size_t m, n;
+    m = B.GetNrows();
+    n = B.GetNcols();
+
+    typename Architecture_t::Matrix_t AReshaped(m, n);
+    Architecture_t::Reshape(AReshaped, A);
+
+    for (size_t i = 0; i < m; i++) {
+        for (size_t j = 0; j < n; j++) {
+            if (AReshaped(i, j) != B(i, j)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 /** Flatten the 3D tensor A using the Flatten function and compare it to
  *  the result in the flat matrix B. */
 //______________________________________________________________________________
-template <typename Architecture>
-auto testFlatten(std::vector<typename Architecture::Matrix_t> &A, const typename Architecture::Matrix_t &B, size_t size,
+template <typename Architecture_t>
+auto testFlatten(std::vector<typename Architecture_t::Matrix_t> &A, const typename Architecture_t::Matrix_t &B, size_t size,
                  size_t nRows, size_t nCols) -> bool
 {
 
@@ -145,8 +199,8 @@ auto testFlatten(std::vector<typename Architecture::Matrix_t> &A, const typename
    m = B.GetNrows();
    n = B.GetNcols();
 
-   typename Architecture::Matrix_t AFlat(m, n);
-   Architecture::Flatten(AFlat, A, size, nRows, nCols);
+   typename Architecture_t::Matrix_t AFlat(m, n);
+   Architecture_t::Flatten(AFlat, A, size, nRows, nCols);
 
    for (size_t i = 0; i < m; i++) {
       for (size_t j = 0; j < n; j++) {
@@ -157,6 +211,31 @@ auto testFlatten(std::vector<typename Architecture::Matrix_t> &A, const typename
    }
 
    return true;
+}
+
+/** Deflatten the 2D tensor A using the Deflatten function and compare it to
+ *  the result in the 3D tensor B. */
+//______________________________________________________________________________
+template <typename Architecture_t>
+auto testDeflatten(const typename Architecture_t::Matrix_t &A, const std::vector<typename Architecture_t::Matrix_t> &B,
+                   size_t size, size_t nRows, size_t nCols) -> bool
+{
+    std::vector<typename Architecture_t::Matrix_t> AComputed;
+    for (size_t i = 0; i < size; i++) {
+        AComputed.emplace_back(nRows, nCols);
+    }
+
+    Architecture_t::Deflatten(AComputed, A, size, nRows, nCols);
+
+    for (size_t i = 0; i < size; i++) {
+        for (size_t j = 0; j < nRows; j++) {
+            for (size_t k = 0; k < nCols; k++) {
+                if (AComputed[i](j, k) != B[i](j, k)) return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 /*! Generate a conv net, perform forward pass */

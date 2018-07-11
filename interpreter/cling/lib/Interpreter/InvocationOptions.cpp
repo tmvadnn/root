@@ -142,6 +142,10 @@ void CompilerOptions::Parse(int argc, const char* const argv[],
       case options::OPT_fmodule_name_EQ: LLVM_FALLTHROUGH;
       case options::OPT_fmodule_name: ModuleName = arg->getValue(); break;
       case options::OPT_fmodules_cache_path: CachePath = arg->getValue(); break;
+      case options::OPT_cuda_path_EQ: CUDAPath = arg->getValue(); break;
+      case options::OPT_cuda_gpu_arch_EQ: CUDAGpuArch = arg->getValue(); break;
+      case options::OPT_Xcuda_fatbinary: CUDAFatbinaryArgs.push_back(arg->getValue());
+                                         break;
 
       default:
         if (Inputs && arg->getOption().getKind() == Option::InputClass)
@@ -184,6 +188,7 @@ InvocationOptions::InvocationOptions(int argc, const char* const* argv) :
         // pass -v to clang as well
         if (arg->getOption().getID() != OPT_v)
           break;
+        /* Falls through. */
       case Option::UnknownClass:
       case Option::InputClass:
         // prune "-" we need to control where it appears when invoking clang

@@ -1,14 +1,14 @@
-% ROOT Version ?.?? Release Notes
-% 20??-??-??
+% ROOT Version 6.16 Release Notes
+% 2018-06-25
 <a name="TopOfPage"></a>
 
 ## Introduction
 
-ROOT version 6.??/00 is scheduled for release in ???.
+ROOT version 6.16/00 is scheduled for release end of 2018.
 
 For more information, see:
 
-[http://root.cern.ch](http://root.cern.ch)
+[http://root.cern](http://root.cern)
 
 The following people have contributed to this new version:
 
@@ -29,15 +29,48 @@ The following people have contributed to this new version:
  Vassil Vassilev, Princeton/CMS,\
  Wouter Verkerke, NIKHEF/Atlas, \
  Jan Musinsky, SAS Kosice
+ Enrico Guiraud, CERN, \
+ Massimo Tumolo, Politecnico di Torino
+
+## Deprecation and Removal
+
+### Ruby bindings
+
+The ruby binding has been unmaintained for several years; it does not build with current ruby versions.
+Given that this effectively meant that Ruby was dysfunctional and given that nobody (but package maintainers) has complained, we decided to remove it.
+
+### Removal of previously deprecated or disabled packages
+
+The packages `afs`, `chirp`, `glite`, `sapdb`, `srp` and `ios` have been removed from ROOT.
+They were deprecated before, or never ported from configure, make to CMake.
+
 
 ## Core Libraries
+
+### Fish support for thisroot script
+
+`. bin/thisroot.fish` sets up the needed ROOT environment variables for one of the ROOT team's favorite shells, the [fish shell](https://fishshell.com/).
+
+### Change of setting the compression algorithm in `rootrc`
+
+The previous setting called `ROOT.ZipMode` is now unused and ignored.
+Instead, use `Root.CompressionAlgorithm` which sets the compression algorithm according to the values of [ECompression](https://root.cern/doc/master/Compression_8h.html#a0a7df9754a3b7be2b437f357254a771c):
+
+* 0: use the default value of `R__ZipMode` (currently selecting LZ4)
+* 1: use zlib (the default until 6.12)
+* 2: use lzma
+* 3: legacy, please don't use
+* 4: LZ4 (the current default)
 
 
 ## I/O Libraries
 
 
 ## TTree Libraries
-
+### RDataFrame
+  - Optimise the creation of the set of branches names of an input dataset,
+  doing the work once and caching it in the RInterface.
+  - Add StdDev action
 
 ## Histogram Libraries
 
@@ -62,9 +95,14 @@ The following people have contributed to this new version:
     the "gs" command (https://ghostscript.com).
 
     Example:
+
 ~~~ {.cpp}
    canvas->Print("example.pdf","EmbedFonts");
 ~~~
+  - In TAttAxis::SaveAttributes` take into account the new default value for `TitleOffset`.
+  - When the histograms' title's font was set in pixel the position of the
+    `TPaveText` containing the title was not correct. This problem was reported
+    [here](https://root-forum.cern.ch/t/titles-disappear-for-font-precision-3/).
 
 ## 3D Graphics Libraries
 

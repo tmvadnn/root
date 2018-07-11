@@ -64,6 +64,14 @@ namespace cling {
     std::string CachePath;
     // If not empty, the name of the module we're currently compiling.
     std::string ModuleName;
+    /// \brief Custom path of the CUDA toolkit
+    std::string CUDAPath;
+    /// \brief Architecture level of the CUDA gpu. Necessary for the
+    /// NVIDIA fatbinary tool.
+    std::string CUDAGpuArch;
+    /// \brief Contains arguments, which will passed to the nvidia tool
+    /// fatbinary.
+    std::vector<std::string> CUDAFatbinaryArgs;
 
     ///\brief The remaining arguments to pass to clang.
     ///

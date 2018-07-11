@@ -20,7 +20,6 @@
 #include "ROOT/TThreadExecutor.hxx"
 #endif
 #include <limits.h>
-#include <cassert>
 #include <functional>
 #include <map>
 #include <memory>
@@ -32,6 +31,7 @@
 #include <vector>
 
 #include "RtypesCore.h" // Long64_t
+#include "TError.h"
 #include "TInterpreter.h"
 #include "TROOT.h" // IsImplicitMTEnabled
 #include "TTreeReader.h"
@@ -52,15 +52,34 @@ RActionBase::RActionBase(RLoopManager *implPtr, const unsigned int nSlots) : fLo
 {
 }
 
+// Some extern instaniations to speed-up compilation/interpretation time
+// These are not active if c++17 is enabled because of a bug in our clang
+// See ROOT-9499.
+#if __cplusplus < 201703L
+template class TColumnValue<int>;
+template class TColumnValue<unsigned int>;
+template class TColumnValue<char>;
+template class TColumnValue<unsigned char>;
+template class TColumnValue<float>;
+template class TColumnValue<double>;
+template class TColumnValue<Long64_t>;
+template class TColumnValue<ULong64_t>;
+template class TColumnValue<std::vector<int>>;
+template class TColumnValue<std::vector<unsigned int>>;
+template class TColumnValue<std::vector<char>>;
+template class TColumnValue<std::vector<unsigned char>>;
+template class TColumnValue<std::vector<float>>;
+template class TColumnValue<std::vector<double>>;
+template class TColumnValue<std::vector<Long64_t>>;
+template class TColumnValue<std::vector<ULong64_t>>;
+#endif
 } // end NS RDF
 } // end NS Internal
 } // end NS ROOT
 
-RCustomColumnBase::RCustomColumnBase(RLoopManager *implPtr, std::string_view name, const unsigned int nSlots,
+RCustomColumnBase::RCustomColumnBase(RLoopManager *lm, std::string_view name, const unsigned int nSlots,
                                      const bool isDSColumn)
-   : fLoopManager(implPtr), fName(name), fNSlots(nSlots), fIsDataSourceColumn(isDSColumn)
-{
-}
+   : fLoopManager(lm), fName(name), fNSlots(nSlots), fIsDataSourceColumn(isDSColumn) {}
 
 // pin vtable. Work around cling JIT issue.
 RCustomColumnBase::~RCustomColumnBase() = default;
@@ -70,14 +89,45 @@ std::string RCustomColumnBase::GetName() const
    return fName;
 }
 
-RLoopManager *RCustomColumnBase::GetLoopManagerUnchecked() const
-{
-   return fLoopManager;
-}
-
 void RCustomColumnBase::InitNode()
 {
    fLastCheckedEntry = std::vector<Long64_t>(fNSlots, -1);
+}
+
+void RJittedCustomColumn::InitSlot(TTreeReader *r, unsigned int slot)
+{
+   R__ASSERT(fConcreteCustomColumn != nullptr);
+   fConcreteCustomColumn->InitSlot(r, slot);
+}
+
+void *RJittedCustomColumn::GetValuePtr(unsigned int slot)
+{
+   R__ASSERT(fConcreteCustomColumn != nullptr);
+   return fConcreteCustomColumn->GetValuePtr(slot);
+}
+
+const std::type_info &RJittedCustomColumn::GetTypeId() const
+{
+   R__ASSERT(fConcreteCustomColumn != nullptr);
+   return fConcreteCustomColumn->GetTypeId();
+}
+
+void RJittedCustomColumn::Update(unsigned int slot, Long64_t entry)
+{
+   R__ASSERT(fConcreteCustomColumn != nullptr);
+   fConcreteCustomColumn->Update(slot, entry);
+}
+
+void RJittedCustomColumn::ClearValueReaders(unsigned int slot)
+{
+   R__ASSERT(fConcreteCustomColumn != nullptr);
+   fConcreteCustomColumn->ClearValueReaders(slot);
+}
+
+void RJittedCustomColumn::InitNode()
+{
+   R__ASSERT(fConcreteCustomColumn != nullptr);
+   fConcreteCustomColumn->InitNode();
 }
 
 RFilterBase::RFilterBase(RLoopManager *implPtr, std::string_view name, const unsigned int nSlots)
@@ -188,19 +238,51 @@ void RJittedFilter::InitNode()
    fConcreteFilter->InitNode();
 }
 
+unsigned int &TSlotStack::GetCount()
+{
+   const auto tid = std::this_thread::get_id();
+   {
+      ROOT::TRWSpinLockReadGuard rg(fRWLock);
+      auto it = fCountMap.find(tid);
+      if (fCountMap.end() != it)
+         return it->second;
+   }
+
+   {
+      ROOT::TRWSpinLockWriteGuard rg(fRWLock);
+      return (fCountMap[tid] = 0U);
+   }
+}
+unsigned int &TSlotStack::GetIndex()
+{
+   const auto tid = std::this_thread::get_id();
+
+   {
+      ROOT::TRWSpinLockReadGuard rg(fRWLock);
+      if (fIndexMap.end() != fIndexMap.find(tid))
+         return fIndexMap[tid];
+   }
+
+   {
+      ROOT::TRWSpinLockWriteGuard rg(fRWLock);
+      return (fIndexMap[tid] = std::numeric_limits<unsigned int>::max());
+   }
+}
+
 void TSlotStack::ReturnSlot(unsigned int slotNumber)
 {
    auto &index = GetIndex();
    auto &count = GetCount();
-   assert(count > 0U && "TSlotStack has a reference count relative to an index which will become negative.");
+   R__ASSERT(count > 0U && "TSlotStack has a reference count relative to an index which will become negative.");
    count--;
    if (0U == count) {
-      index = UINT_MAX;
-      std::lock_guard<ROOT::TSpinMutex> guard(fMutex);
+      index = std::numeric_limits<unsigned int>::max();
+      ROOT::TRWSpinLockWriteGuard guard(fRWLock);
       fBuf[fCursor++] = slotNumber;
-      assert(fCursor <= fBuf.size() && "TSlotStack assumes that at most a fixed number of values can be present in the "
-                                       "stack. fCursor is greater than the size of the internal buffer. This violates "
-                                       "such assumption.");
+      R__ASSERT(fCursor <= fBuf.size() &&
+                "TSlotStack assumes that at most a fixed number of values can be present in the "
+                "stack. fCursor is greater than the size of the internal buffer. This violates "
+                "such assumption.");
    }
 }
 
@@ -209,11 +291,12 @@ unsigned int TSlotStack::GetSlot()
    auto &index = GetIndex();
    auto &count = GetCount();
    count++;
-   if (UINT_MAX != index)
+   if (std::numeric_limits<unsigned int>::max() != index)
       return index;
-   std::lock_guard<ROOT::TSpinMutex> guard(fMutex);
-   assert(fCursor > 0 && "TSlotStack assumes that a value can be always obtained. In this case fCursor is <=0 and this "
-                         "violates such assumption.");
+   ROOT::TRWSpinLockWriteGuard guard(fRWLock);
+   R__ASSERT(fCursor > 0 &&
+             "TSlotStack assumes that a value can be always obtained. In this case fCursor is <=0 and this "
+             "violates such assumption.");
    index = fBuf[--fCursor];
    return index;
 }
@@ -327,7 +410,7 @@ void RLoopManager::RunTreeReader()
 /// Run event loop over data accessed through a DataSource, in sequence.
 void RLoopManager::RunDataSource()
 {
-   assert(fDataSource != nullptr);
+   R__ASSERT(fDataSource != nullptr);
    fDataSource->Initialise();
    auto ranges = fDataSource->GetEntryRanges();
    while (!ranges.empty()) {
@@ -351,7 +434,7 @@ void RLoopManager::RunDataSource()
 void RLoopManager::RunDataSourceMT()
 {
 #ifdef R__USE_IMT
-   assert(fDataSource != nullptr);
+   R__ASSERT(fDataSource != nullptr);
    TSlotStack slotStack(fNSlots);
    ROOT::TThreadExecutor pool;
 
@@ -458,7 +541,7 @@ void RLoopManager::CleanUpNodes()
 void RLoopManager::CleanUpTask(unsigned int slot)
 {
    for (auto &ptr : fBookedActions)
-      ptr->ClearValueReaders(slot);
+      ptr->FinalizeSlot(slot);
    for (auto &ptr : fBookedFilters)
       ptr->ClearValueReaders(slot);
    for (auto &pair : fBookedCustomColumns)
@@ -466,7 +549,7 @@ void RLoopManager::CleanUpTask(unsigned int slot)
 }
 
 /// Jit all actions that required runtime column type inference, and clean the `fToJit` member variable.
-void RLoopManager::JitActions()
+void RLoopManager::BuildJittedNodes()
 {
    auto error = TInterpreter::EErrorCode::kNoError;
    gInterpreter->Calc(fToJit.c_str(), &error);
@@ -504,7 +587,7 @@ unsigned int RLoopManager::GetNextID() const
 void RLoopManager::Run()
 {
    if (!fToJit.empty())
-      JitActions();
+      BuildJittedNodes();
 
    InitNodes();
 
