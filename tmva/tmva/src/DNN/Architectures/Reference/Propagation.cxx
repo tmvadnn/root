@@ -427,14 +427,20 @@ void TReference<AReal>::ZeroPad2DForward(TMatrixT<AReal> &A, const TMatrixT<ARea
 template <typename AReal>
 void TReference<AReal>::ZeroPad2DBackward(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
                                           const std::vector<TMatrixT<AReal>> &activationGradients,
+                                          size_t topPad, size_t bottomPad, size_t leftPad,
+                                          size_t rightPad, size_t outputHeight, size_t outputWidth,   
                                           size_t batchSize, size_t depth)
 {
+   size_t inputHeight = outputHeight - topPad - bottomPad;
+   size_t inputWidth  = outputWidth - leftPad - rightPad; 
+
    for (size_t i = 0; i < batchSize; i++) {
       for (size_t j = 0; j < depth; j++) {
 
          // initialize to zeros
          for (size_t t = 0; t < (size_t)activationGradientsBackward[i].GetNcols(); t++) {
-            activationGradientsBackward[i][j][t] = activationGradients[i][j][t];
+            size_t idx = outputWidth * topPad + (t/inputWidth) * outputWidth + t%inputWidth + leftPad;
+            activationGradientsBackward[i][j][t] = activationGradients[i][j][idx];
          }
 
       }

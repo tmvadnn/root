@@ -14,6 +14,7 @@
  *      Akshay Vashistha     <akshayvashistha1995@gmail.com> - CERN, Switzerland  *
  *      Vladimir Ilievski    <ilievski.vladimir@live.com>  - CERN, Switzerland    *
  *      Saurav Shekhar       <sauravshekhar01@gmail.com> - CERN, Switzerland      *
+ *      Siddhartha Rao Kamalakara     <srk97c@gmail.com> - CERN, Switzerland      *
  *                                                                                *
  * Copyright (c) 2005-2015:                                                       *
  *      CERN, Switzerland                                                         *
@@ -40,6 +41,7 @@
 
 #include "TMVA/DNN/CNN/ConvLayer.h"
 #include "TMVA/DNN/CNN/MaxPoolLayer.h"
+#include "TMVA/DNN/CNN/PaddingLayer.h"
 
 #include "TMVA/DNN/RNN/RNNLayer.h"
 
@@ -166,6 +168,15 @@ public:
    /*! Function for adding Reshape Layer in the Deep Neural Network, when
     *  the layer is already created. */
    void AddReshapeLayer(TReshapeLayer<Architecture_t> *reshapeLayer);
+
+   /*! Function for adding Padding Layer in the Deep Neural Network, with a given
+    *  top, bottom, left and right paddings. It will take every matrix from the 
+    *  previous layer and pad it with zeros to a matrix with new dimensions. */
+   TPaddingLayer<Architecture_t> *AddPaddingLayer(size_t topPad, size_t bottomPad, size_t leftPad, bool rightPad);
+
+   /*! Function for adding Padding Layer in the Deep Neural Network, when
+    *  the layer is already created. */
+   void AddPaddingLayer(TPaddingLayer<Architecture_t> *paddingLayer);
 
 #ifdef HAVE_DAE   /// DAE functions
    /*! Function for adding Corruption layer in the Deep Neural Network,
@@ -544,6 +555,49 @@ void TDeepNet<Architecture_t, Layer_t>::AddBasicRNNLayer(TBasicRNNLayer<Architec
 {
    fLayers.push_back(basicRNNLayer);
 }
+
+//______________________________________________________________________________
+template <typename Architecture_t, typename Layer_t>
+TPaddingLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddPaddingLayer(size_t topPad, size_t bottomPad,
+                                                                                  size_t leftPad, size_t rightPad)
+{
+   size_t batchSize = this->GetBatchSize();
+   size_t inputDepth;
+   size_t inputHeight;
+   size_t inputWidth;
+   size_t height;
+   size_t width;
+   size_t outputNSlices = this->GetBatchSize();
+   size_t outputNRows;
+   size_t outputNCols;
+
+   if (fLayers.size() == 0) {
+      inputDepth = this->GetInputDepth();
+      inputHeight = this->GetInputHeight();
+      inputWidth = this->GetInputWidth();
+   } else {
+      Layer_t *lastLayer = fLayers.back();
+      inputDepth = lastLayer->GetDepth();
+      inputHeight = lastLayer->GetHeight();
+      inputWidth = lastLayer->GetWidth();
+   }
+
+   TPaddingLayer<Architecture_t> *paddingLayer = new TPaddingLayer<Architecture_t>(
+      batchSize, inputDepth, inputHeight, inputWidth, topPad, bottomPad, leftPad, rightPad);
+
+   // But this creates a copy or what?
+   fLayers.push_back(paddingLayer);
+
+   return paddingLayer;
+}
+
+//______________________________________________________________________________
+template <typename Architecture_t, typename Layer_t>
+void TDeepNet<Architecture_t, Layer_t>::AddPaddingLayer(TPaddingLayer<Architecture_t> *paddingLayer)
+{
+   fLayers.push_back(paddingLayer);
+}
+
 
 //DAE
 #ifdef HAVE_DAE

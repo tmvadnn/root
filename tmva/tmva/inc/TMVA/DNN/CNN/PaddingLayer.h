@@ -8,7 +8,7 @@
  * Web    : http://tmva.sourceforge.net                                           *
  *                                                                                *
  * Description:                                                                   *
- *      Convolutional Deep Neural Network Layer                                   *
+ *      Padding Layer                                                             *
  *                                                                                *
  * Authors (alphabetical):                                                        *
  *      Siddhartha Rao Kamalakara        <srk97c@gmail.com>  - CERN, Switzerland  *
@@ -24,8 +24,8 @@
  * (http://tmva.sourceforge.net/LICENSE)                                          *
  **********************************************************************************/
 
-#ifndef TMVA_CNN_CONVLAYER
-#define TMVA_CNN_CONVLAYER
+#ifndef TMVA_CNN_PADDINGLAYER
+#define TMVA_CNN_PADDINGLAYER
 
 #include "TMatrix.h"
 
@@ -139,11 +139,11 @@ TPaddingLayer<Architecture_t>::~TPaddingLayer()
 
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-auto TReshapeLayer<Architecture_t>::Forward(std::vector<Matrix_t> &input, bool /*applyDropout*/) -> void
+auto TPaddingLayer<Architecture_t>::Forward(std::vector<Matrix_t> &input, bool /*applyDropout*/) -> void
 {
 
   for (size_t i = 0; i < this->GetBatchSize(); i++) {
-     Architecture_t::ZeroPad2DForward(this->GetOutputAt(i), input[i], fTopPad, fBottomPad, fRightPad, fLeftPad, this->GetOutputHeight(), this->GetOutputWidth());
+     Architecture_t::ZeroPad2DForward(this->GetOutputAt(i), input[i], fTopPad, fBottomPad, fLeftPad, fRightPad, this->GetOutputHeight(), this->GetOutputWidth());
   }
 
 }
@@ -155,42 +155,33 @@ auto TPaddingLayer<Architecture_t>::Backward(std::vector<Matrix_t> &gradients_ba
                                              std::vector<Matrix_t> & /*inp1*/, std::vector<Matrix_t> &
                                              /*inp2*/) -> void
 {
-   // in case of first layer size is zero - do nothing
-   if (gradients_backward.size() == 0) return; 
-   if (fFlattening) {
-      size_t size = gradients_backward.size();
-      size_t nRows = gradients_backward[0].GetNrows();
-      size_t nCols = gradients_backward[0].GetNcols();
-      Architecture_t::Deflatten(gradients_backward, this->GetActivationGradientsAt(0), size, nRows, nCols);
-   } else {
-      for (size_t i = 0; i < this->GetBatchSize(); i++) {
-         Architecture_t::Reshape(gradients_backward[i], this->GetActivationGradientsAt(i));
-      }
-   }
+	Architecture_t::ZeroPad2DBackward(gradients_backward, this->GetActivationGradients(), fTopPad, fBottomPad, fLeftPad,
+									  fRightPad, this->GetOutputHeight(), this->GetOutputWidth(), this->GetBatchSize(),
+									  this->GetDepth())
 }
 
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-auto TReshapeLayer<Architecture_t>::Print() const -> void
+auto TPaddingLayer<Architecture_t>::Print() const -> void
 {
    std::cout << " PADDING Layer \t ";
    std::cout << "Input = ( " << this->GetInputDepth() << " , " <<  this->GetInputHeight() << " , " << this->GetInputWidth() << " ) ";
    if (this->GetOutput().size() > 0) {
-      std::cout << "\tOutput = ( " << this->GetOutput().size() << " , " << this->GetOutput()[0].GetNrows() << " , " << this->GetOutput()[0].GetNcols() << " ) ";
+      std::cout << "\tOutput = ( " << this->GetOutput().size() << " , " << this->GetOutputHeight() << " , " << this->GetOutputWidth() << " ) ";
    }
    std::cout << std::endl;
 }
 
 template <typename Architecture_t>
-auto TReshapeLayer<Architecture_t>::AddWeightsXMLTo(void *parent) -> void
+auto TPaddingLayer<Architecture_t>::AddWeightsXMLTo(void *parent) -> void
 {
    auto layerxml = gTools().xmlengine().NewChild(parent, 0, "PaddingLayer");
 
-   // write info for reshapelayer
-   gTools().xmlengine().NewAttr(layerxml, 0, "Depth", gTools().StringFromInt(this->GetDepth()));
-   gTools().xmlengine().NewAttr(layerxml, 0, "Height", gTools().StringFromInt(this->GetHeight()));
-   gTools().xmlengine().NewAttr(layerxml, 0, "Width", gTools().StringFromInt(this->GetWidth()));
-   gTools().xmlengine().NewAttr(layerxml, 0, "Flattening", gTools().StringFromInt(this->isFlattening()));
+   // write info for padding layer
+   gTools().xmlengine().NewAttr(layerxml, 0, "Left Pad", gTools().StringFromInt(this->GetLeftPadding()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "Right Pad", gTools().StringFromInt(this->GetRightPadding()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "Top Pad", gTools().StringFromInt(this->GetTopPadding()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "Bottom Pad", gTools().StringFromInt(this->GetBottomPadding()));
 
 
 }

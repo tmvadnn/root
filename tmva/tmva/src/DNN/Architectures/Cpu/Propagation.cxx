@@ -581,22 +581,53 @@ void TCpu<AFloat>::MaxPoolLayerBackward(std::vector<TCpuMatrix<AFloat>> &activat
 
 //______________________________________________________________________________
 template <typename AFloat>
-void TCpu<AFloat>::ZeroPad2DForward(TCpuMatrix<AFloat> &A, const TCpuMatrix<AFloat> &B, size_t topPad, size_t bottomPad, size_t leftPad, size_t rightPad)
+void TReference<AFloat>::ZeroPad2DForward(TCpuMatrix<AFloat> &A, const TCpuMatrix<AFloat> &B, 
+                                         size_t topPad, size_t bottomPad, size_t leftPad,
+                                         size_t rightPad, size_t outputHeight, size_t outputWidth)
 {
-   size_t nColsA = A.GetNcols();
-   size_t nColsB = B.GetNcols();
+   auto nColsA = A.GetNcols();
+   auto nColsB = B.GetNcols();   
 
-   for (size_t i = 0; i < A.GetNrows(); i++) {
-      for (size_t j = 0; j < A.GetNcols(); j++) {
-         if(i<topPad || (i>B.GetNrows() && i<bottomPad) || j<leftPad || (j>B.GetNcols() && j<rightPad)){
+   for (Int_t i = 0; i < (Int_t) A.GetNrows(); i++) {
+      int original_idx = 0;
+      for (Int_t j = 0; j < (Int_t) A.GetNcols(); j++) {
+         Int_t row = j / outputHeight;
+         Int_t col = j - (row*outputWidth);
+         if(row<topPad || (row>(outputHeight-topPad-bottomPad) && row<bottomPad) || col<leftPad || (col>(outputWidth-leftPad-rightPad) && col<rightPad)){
             A(i, j) = 0;
          }
          else{
-            A(i, j) = B(i-leftPad, j-topPad);
+            A(i, j) = B(i, original_idx);
+            original_idx += 1;
          }
       }
    }
 }
+
+//______________________________________________________________________________
+template <typename AFloat>
+void TReference<AFloat>::ZeroPad2DBackward(std::vector<TCpuMatrix<AFloat>> &activationGradientsBackward,
+                                          const std::vector<TCpuMatrix<AFloat>> &activationGradients,
+                                          size_t topPad, size_t bottomPad, size_t leftPad,
+                                          size_t rightPad, size_t outputHeight, size_t outputWidth,   
+                                          size_t batchSize, size_t depth)
+{
+   size_t inputHeight = outputHeight - topPad - bottomPad;
+   size_t inputWidth  = outputWidth - leftPad - rightPad; 
+
+   for (size_t i = 0; i < batchSize; i++) {
+      for (size_t j = 0; j < depth; j++) {
+
+         // initialize to zeros
+         for (size_t t = 0; t < (size_t)activationGradientsBackward[i].GetNcols(); t++) {
+            size_t idx = outputWidth * topPad + (t/inputWidth) * outputWidth + t%inputWidth + leftPad;
+            activationGradientsBackward[i][j][t] = activationGradients[i][j][idx];
+         }
+
+      }
+   }
+}
+
 
 //____________________________________________________________________________
 template <typename AFloat>
