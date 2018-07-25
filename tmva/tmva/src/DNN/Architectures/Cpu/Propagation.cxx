@@ -579,6 +579,25 @@ void TCpu<AFloat>::MaxPoolLayerBackward(std::vector<TCpuMatrix<AFloat>> &activat
    }
 }
 
+//______________________________________________________________________________
+template <typename AFloat>
+void TCpu<AFloat>::ZeroPad2DForward(TCpuMatrix<AFloat> &A, const TCpuMatrix<AFloat> &B, size_t topPad, size_t bottomPad, size_t leftPad, size_t rightPad)
+{
+   size_t nColsA = A.GetNcols();
+   size_t nColsB = B.GetNcols();
+
+   for (size_t i = 0; i < A.GetNrows(); i++) {
+      for (size_t j = 0; j < A.GetNcols(); j++) {
+         if(i<topPad || (i>B.GetNrows() && i<bottomPad) || j<leftPad || (j>B.GetNcols() && j<rightPad)){
+            A(i, j) = 0;
+         }
+         else{
+            A(i, j) = B(i-leftPad, j-topPad);
+         }
+      }
+   }
+}
+
 //____________________________________________________________________________
 template <typename AFloat>
 void TCpu<AFloat>::Reshape(TCpuMatrix<AFloat> &A, const TCpuMatrix<AFloat> &B)

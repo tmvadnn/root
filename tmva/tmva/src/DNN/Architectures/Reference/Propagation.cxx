@@ -400,6 +400,49 @@ void TReference<AReal>::MaxPoolLayerBackward(std::vector<TMatrixT<AReal>> &activ
 
 //______________________________________________________________________________
 template <typename AReal>
+void TReference<AReal>::ZeroPad2DForward(TMatrixT<AReal> &A, const TMatrixT<AReal> &B, 
+                                         size_t topPad, size_t bottomPad, size_t leftPad,
+                                         size_t rightPad, size_t outputHeight, size_t outputWidth)
+{
+   auto nColsA = A.GetNcols();
+   auto nColsB = B.GetNcols();   
+
+   for (Int_t i = 0; i < A.GetNrows(); i++) {
+      Int_t original_idx = 0;
+      for (Int_t j = 0; j < A.GetNcols(); j++) {
+         Int_t row = j / outputHeight;
+         Int_t col = j - (row*outputWidth);
+         if(row<topPad || (row>(outputHeight-topPad-bottomPad) && row<bottomPad) || col<leftPad || (col>(outputWidth-leftPad-rightPad) && col<rightPad)){
+            A(i, j) = 0;
+         }
+         else{
+            A(i, j) = B(i, original_idx);
+            original_idx += 1;
+         }
+      }
+   }
+}
+
+//______________________________________________________________________________
+template <typename AReal>
+void TReference<AReal>::ZeroPad2DBackward(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
+                                          const std::vector<TMatrixT<AReal>> &activationGradients,
+                                          size_t batchSize, size_t depth)
+{
+   for (size_t i = 0; i < batchSize; i++) {
+      for (size_t j = 0; j < depth; j++) {
+
+         // initialize to zeros
+         for (size_t t = 0; t < (size_t)activationGradientsBackward[i].GetNcols(); t++) {
+            activationGradientsBackward[i][j][t] = activationGradients[i][j][t];
+         }
+
+      }
+   }
+}
+
+//______________________________________________________________________________
+template <typename AReal>
 void TReference<AReal>::Reshape(TMatrixT<AReal> &A, const TMatrixT<AReal> &B)
 {
    auto nColsA = A.GetNcols();

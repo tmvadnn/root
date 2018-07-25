@@ -432,6 +432,37 @@ public:
                                     const std::vector<TMatrixT<AReal>> &indexMatrix, size_t batchSize, size_t depth,
                                     size_t nLocalViews);
    ///@}
+
+
+   //____________________________________________________________________________
+   //
+   //  Zero Padding Layer Propagation
+   //____________________________________________________________________________
+   /** @name Forward Propagation in Zero Padding Layer
+    */
+   ///@{
+
+  /** Zero Pad the matrix \p B to the matrix \p A, using the
+    *  padding dimensions specified.
+    *   */
+   static void ZeroPad2DForward(TMatrixT<AReal> &A, const TMatrixT<AReal> &B, 
+                                                   size_t topPad, size_t bottomPad, size_t leftPad,
+                                                   size_t rightPad);
+
+   ///@}
+
+   /** @name Backward Propagation in Zero Padding Layer
+    */
+   ///@{
+
+   /** Perform the complete backward propagation step in a Zero Padding Layer. The gradients
+    *  at the padded positions get discarded. */
+   static void ZeroPad2DBackward(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
+                                    const std::vector<TMatrixT<AReal>> &activationGradients,
+                                    const std::vector<TMatrixT<AReal>> &indexMatrix, size_t batchSize, size_t depth,
+                                    size_t nLocalViews);
+   ///@}
+
    //____________________________________________________________________________
    //
    //  Reshape Layer Propagation
