@@ -212,5 +212,6 @@ size_t TPaddingLayer<Architecture_t>::calculateDimension(size_t imgHeight, size_
 
 } // namespace DNN
 } // namespace TMVA
+}
 
 #endif

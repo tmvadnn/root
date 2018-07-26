@@ -172,7 +172,7 @@ public:
    /*! Function for adding Padding Layer in the Deep Neural Network, with a given
     *  top, bottom, left and right paddings. It will take every matrix from the 
     *  previous layer and pad it with zeros to a matrix with new dimensions. */
-   TPaddingLayer<Architecture_t> *AddPaddingLayer(size_t topPad, size_t bottomPad, size_t leftPad, bool rightPad);
+   TPaddingLayer<Architecture_t> *AddPaddingLayer(size_t topPad, size_t bottomPad, size_t leftPad, size_t rightPad);
 
    /*! Function for adding Padding Layer in the Deep Neural Network, when
     *  the layer is already created. */

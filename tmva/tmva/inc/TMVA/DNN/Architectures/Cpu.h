@@ -426,8 +426,8 @@ public:
 
    /** Perform the complete backward propagation step in a Zero Padding Layer. The gradients
     *  at the padded positions get discarded. */
-   static void ZeroPad2DBackward(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
-                                 const std::vector<TMatrixT<AReal>> &activationGradients,
+   static void ZeroPad2DBackward(std::vector<TCpuMatrix<AReal>> &activationGradientsBackward,
+                                 const std::vector<TCpuMatrix<AReal>> &activationGradients,
                                  size_t topPad, size_t bottomPad, size_t leftPad,
                                  size_t rightPad, size_t outputHeight, size_t outputWidth,
                                  size_t batchSize, size_t depth);

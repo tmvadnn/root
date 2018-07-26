@@ -581,7 +581,7 @@ void TCpu<AFloat>::MaxPoolLayerBackward(std::vector<TCpuMatrix<AFloat>> &activat
 
 //______________________________________________________________________________
 template <typename AFloat>
-void TReference<AFloat>::ZeroPad2DForward(TCpuMatrix<AFloat> &A, const TCpuMatrix<AFloat> &B, 
+void TCpu<AFloat>::ZeroPad2DForward(TCpuMatrix<AFloat> &A, const TCpuMatrix<AFloat> &B, 
                                          size_t topPad, size_t bottomPad, size_t leftPad,
                                          size_t rightPad, size_t outputHeight, size_t outputWidth)
 {
@@ -606,7 +606,7 @@ void TReference<AFloat>::ZeroPad2DForward(TCpuMatrix<AFloat> &A, const TCpuMatri
 
 //______________________________________________________________________________
 template <typename AFloat>
-void TReference<AFloat>::ZeroPad2DBackward(std::vector<TCpuMatrix<AFloat>> &activationGradientsBackward,
+void TCpu<AFloat>::ZeroPad2DBackward(std::vector<TCpuMatrix<AFloat>> &activationGradientsBackward,
                                           const std::vector<TCpuMatrix<AFloat>> &activationGradients,
                                           size_t topPad, size_t bottomPad, size_t leftPad,
                                           size_t rightPad, size_t outputHeight, size_t outputWidth,   
@@ -621,7 +621,7 @@ void TReference<AFloat>::ZeroPad2DBackward(std::vector<TCpuMatrix<AFloat>> &acti
          // initialize to zeros
          for (size_t t = 0; t < (size_t)activationGradientsBackward[i].GetNcols(); t++) {
             size_t idx = outputWidth * topPad + (t/inputWidth) * outputWidth + t%inputWidth + leftPad;
-            activationGradientsBackward[i][j][t] = activationGradients[i][j][idx];
+            activationGradientsBackward[i](j, t) = activationGradients[i](j, idx);
          }
 
       }
