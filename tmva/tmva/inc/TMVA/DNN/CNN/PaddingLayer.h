@@ -82,20 +82,26 @@ public:
 	                                             std::vector<Matrix_t> & /*inp1*/, std::vector<Matrix_t> &
 	                                             /*inp2*/);
 
-   	/*! Prints the info about the layer. */
-   	void Print() const;		
+  /*! Writes the information and the weights about the layer in an XML node. */
+  virtual void AddWeightsXMLTo(void *parent);
 
-   	size_t GetTopPadding() const {return fTopPad;}
+  /*! Read the information and the weights about the layer from XML node. */
+  virtual void ReadWeightsFromXML(void *parent);
 
-   	size_t GetBottomPadding() const {return fBottomPad;}
+  /*! Prints the info about the layer. */
+  void Print() const;		
 
-   	size_t GetLeftPadding() const {return fLeftPad;}
+  size_t GetTopPadding() const {return fTopPad;}
 
-   	size_t GetRightPadding() const {return fRightPad;}
+  size_t GetBottomPadding() const {return fBottomPad;}
 
-   	size_t GetOutputHeight() const {return outputHeight;}
+  size_t GetLeftPadding() const {return fLeftPad;}
 
-   	size_t GetOutputWidth() const {return outputWidth;}
+  size_t GetRightPadding() const {return fRightPad;}
+
+  size_t GetOutputHeight() const {return outputHeight;}
+
+  size_t GetOutputWidth() const {return outputWidth;}
 
 
 };
@@ -115,7 +121,7 @@ TPaddingLayer<Architecture_t>::TPaddingLayer(size_t batchSize, size_t inputDepth
 
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-TPaddingLayer<Architecture_t>::TPaddingLayer(TPadding<Architecture_t> *layer)
+TPaddingLayer<Architecture_t>::TPaddingLayer(TPaddingLayer<Architecture_t> *layer)
    : VGeneralLayer<Architecture_t>(layer), fTopPad(layer->GetTopPadding()), fBottomPad(layer->GetBottomPadding()),
    	fLeftPad(layer->GetLeftPadding()), fRightPad(layer->GetRightPadding())
 {
@@ -157,7 +163,7 @@ auto TPaddingLayer<Architecture_t>::Backward(std::vector<Matrix_t> &gradients_ba
 {
 	Architecture_t::ZeroPad2DBackward(gradients_backward, this->GetActivationGradients(), fTopPad, fBottomPad, fLeftPad,
 									  fRightPad, this->GetOutputHeight(), this->GetOutputWidth(), this->GetBatchSize(),
-									  this->GetDepth())
+									  this->GetDepth());
 }
 
 //_________________________________________________________________________________________________
@@ -206,3 +212,5 @@ size_t TPaddingLayer<Architecture_t>::calculateDimension(size_t imgHeight, size_
 
 } // namespace DNN
 } // namespace TMVA
+
+#endif
