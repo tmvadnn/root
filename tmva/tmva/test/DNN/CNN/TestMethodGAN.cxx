@@ -1,5 +1,5 @@
 // @(#)root/tmva/tmva/cnn:$Id$
-// Author: Vladimir Ilievski
+// Author: Anushree Rankawat
 
 /**********************************************************************************
  * Project: TMVA - a Root-integrated toolkit for multivariate data analysis       *
@@ -11,7 +11,7 @@
  *      Testing Method GAN                                                        *
  *                                                                                *
  * Authors (alphabetical):                                                        *
- *      Vladimir Ilievski      <ilievski.vladimir@live.com>  - CERN, Switzerland  *
+ *      Anushree Rankawat <anushreerankawat110@gmail.com>                         *
  *                                                                                *
  * Copyright (c) 2005-2015:                                                       *
  *      CERN, Switzerland                                                         *
@@ -34,6 +34,8 @@ int main()
    TString archCPU = "CPU";
 
    testMethodGAN_DNN(archCPU);
-   //testMethodDL_CNN(archCPU);
+   testCreateNoisyMatrices();
+   testCreateDiscriminatorFakeData();
+   testCombineGAN();
 
 }

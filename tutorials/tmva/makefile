@@ -6,6 +6,7 @@ BINS = TMVAClassification \
         TMVAClassificationCategory \
         TMVAClassificationApplication \
         TMVAClassificationCategoryApplication \
+        TMVAGeneration \
         TMVARegression \
         TMVARegressionApplication \
         TMVAMulticlass \
@@ -35,5 +36,7 @@ $(BINS): % : %.C
 
 
 clean: 
+        find . -type f | xargs touch
+        rm -rf $(OBJS)
 	rm -f *.o	$(BINS)
 

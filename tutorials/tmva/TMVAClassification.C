@@ -121,7 +121,6 @@ int TMVAClassification( TString myMethodList = "" )
    Use["TMlpANN"]         = 0; // ROOT's own ANN
    Use["DNN_GPU"]         = 0; // CUDA-accelerated DNN training.
    Use["DNN_CPU"]         = 0; // Multi-core accelerated DNN.
-   Use["GAN"]		  = 0; // Generative Adversarial Networks
    //
    // Support Vector Machine
    Use["SVM"]             = 1;
@@ -164,10 +163,8 @@ int TMVAClassification( TString myMethodList = "" )
 
    // Read training and test data
    // (it is also possible to use ASCII format as input -> see TMVA Users Guide)
-   std::cout<<"Before preparing training data"<<std::endl;
    TFile *input(0);
-   //TString fname = "./tmva_class_example.root";
-   TString fname = "/home/anushree/GSoC/DataCreation/mnist_original1.root";
+   TString fname = "./tmva_class_example.root";
    if (!gSystem->AccessPathName( fname )) {
       input = TFile::Open( fname ); // check if file in local directory exists
    }
@@ -180,12 +177,11 @@ int TMVAClassification( TString myMethodList = "" )
       exit(1);
    }
    std::cout << "--- TMVAClassification       : Using input file: " << input->GetName() << std::endl;
-   std::cout << "After opening input data file" << std::endl;
 
    // Register the training and test trees
 
-   TTree *signalTree     = (TTree*)input->Get("train_sig");
-   TTree *background     = (TTree*)input->Get("train_bkg");
+   TTree *signalTree     = (TTree*)input->Get("TreeS");
+   TTree *background     = (TTree*)input->Get("TreeB");
 
    // Create a ROOT output file where TMVA will store ntuples, histograms, etc.
    TString outfileName( "TMVA.root" );
@@ -214,17 +210,17 @@ int TMVAClassification( TString myMethodList = "" )
    // Define the input variables that shall be used for the MVA training
    // note that you may also use variable expressions, such as: "3*var1/var2*abs(var3)"
    // [all types of expressions that can also be parsed by TTree::Draw( "expression" )]
-   //dataloader->AddVariable( "myvar1 := var1+var2", 'F' );
-   //dataloader->AddVariable( "myvar2 := var1-var2", "Expression 2", "", 'F' );
-   //dataloader->AddVariable( "var3",                "Variable 3", "units", 'F' );
-   //dataloader->AddVariable( "var4",                "Variable 4", "units", 'F' );
+   dataloader->AddVariable( "myvar1 := var1+var2", 'F' );
+   dataloader->AddVariable( "myvar2 := var1-var2", "Expression 2", "", 'F' );
+   dataloader->AddVariable( "var3",                "Variable 3", "units", 'F' );
+   dataloader->AddVariable( "var4",                "Variable 4", "units", 'F' );
 
    // You can add so-called "Spectator variables", which are not used in the MVA training,
    // but will appear in the final "TestTree" produced by TMVA. This TestTree will contain the
    // input variables, the response values of all trained MVAs, and the spectator variables
 
-   //dataloader->AddSpectator( "spec1 := var1*2",  "Spectator 1", "units", 'F' );
-   //dataloader->AddSpectator( "spec2 := var1*3",  "Spectator 2", "units", 'F' );
+   dataloader->AddSpectator( "spec1 := var1*2",  "Spectator 1", "units", 'F' );
+   dataloader->AddSpectator( "spec2 := var1*3",  "Spectator 2", "units", 'F' );
 
 
    // global event weights per tree (see below for setting event-wise weights)
@@ -278,22 +274,12 @@ int TMVAClassification( TString myMethodList = "" )
    // Set individual event weights (the variables must exist in the original TTree)
    // -  for signal    : `dataloader->SetSignalWeightExpression    ("weight1*weight2");`
    // -  for background: `dataloader->SetBackgroundWeightExpression("weight1*weight2");`
-   //dataloader->SetBackgroundWeightExpression( "weight" );
+   dataloader->SetBackgroundWeightExpression( "weight" );
 
    // Apply additional cuts on the signal and background samples (can be different)
    TCut mycuts = ""; // for example: TCut mycuts = "abs(var1)<0.5 && abs(var2-0.5)<1";
    TCut mycutb = ""; // for example: TCut mycutb = "abs(var1)<0.5";
 
-
-   for (int i = 0; i < 28; ++i) {
-      for (int j = 0; j < 28; ++j) {
-         int ivar=i*28+j;
-         TString varName = TString::Format("x%d",ivar);
-         dataloader->AddVariable(varName,'F');
-      }
-   }
-
-   //dataloader->AddTarget("y",'F');
    // Tell the dataloader how to use the training and testing events
    //
    // If no numbers of events are given, half of the events in the tree are used
@@ -486,67 +472,6 @@ int TMVAClassification( TString myMethodList = "" )
          TString cpuOptions = dnnOptions + ":Architecture=CPU";
          factory->BookMethod(dataloader, TMVA::Types::kDNN, "DNN_CPU", cpuOptions);
       }
-   }
-
-   if(Use["GAN"]) {
-      std::cout<<"In GAN condition inside the TMVAClassification file"<<std::endl;
-
-      // Input Layout
-      TString inputLayoutString("InputLayout=1|1|784##1|1|784");
-
-      // Batch Layout
-      TString batchLayoutString("BatchLayout=256|1|784##256|1|784");
-
-      //General Layout
-      //TString layoutString ("Layout=CONV|1|3|3|1|1|0|0|TANH,MAXPOOL|2|2|2|2,RESHAPE|FLAT,DENSE|100|TANH,"
-      //                  "DENSE|784|LINEAR##RESHAPE|1|1|784|FLAT,DENSE|128|TANH,DENSE|128|TANH,DENSE|128|TANH,DENSE|1|LINEAR");
-
-      TString layoutString ("Layout=RESHAPE|1|1|784|FLAT,DENSE|128|TANH,DENSE|128|TANH,DENSE|128|TANH,DENSE|784|LINEAR##RESHAPE|1|1|784|FLAT,DENSE|128|TANH,DENSE|128|TANH,DENSE|128|TANH,DENSE|1|LINEAR");
-
-      // Training strategies.
-      TString training0("MaxEpochs=2000,GeneratorLearningRate=1e-1,GeneratorMomentum=0.9,GeneratorRepetitions=1,"
-                        "GeneratorConvergenceSteps=20,GeneratorBatchSize=256,GeneratorTestRepetitions=10,"
-                        "GeneratorWeightDecay=1e-4,GeneratorRegularization=L2,"
-                        "GeneratorDropConfig=0.0+0.5+0.5+0.5, GeneratorMultithreading=True,"
- 			"DiscriminatorLearningRate=1e-1,DiscriminatorMomentum=0.9,DiscriminatorRepetitions=1,"
-                        "DiscriminatorConvergenceSteps=20,DiscriminatorBatchSize=256,DiscriminatorTestRepetitions=10,"
-                        "DiscriminatorWeightDecay=1e-4,DiscriminatorRegularization=L2,"
-                        "DiscriminatorDropConfig=0.0+0.5+0.5+0.5, DiscriminatorMultithreading=True");
-      TString training1("MaxEpochs=2000,GeneratorLearningRate=1e-2,GeneratorMomentum=0.9,GeneratorRepetitions=1,"
-                        "GeneratorConvergenceSteps=20,GeneratorBatchSize=256,GeneratorTestRepetitions=10,"
-                        "GeneratorWeightDecay=1e-4,GeneratorRegularization=L2,"
-                        "GeneratorDropConfig=0.0+0.0+0.0+0.0, GeneratorMultithreading=True,"
-			"DiscriminatorLearningRate=1e-2,DiscriminatorMomentum=0.9,DiscriminatorRepetitions=1,"
-                        "DiscriminatorConvergenceSteps=20,DiscriminatorBatchSize=256,DiscriminatorTestRepetitions=10,"
-                        "DiscriminatorWeightDecay=1e-4,DiscriminatorRegularization=L2,"
-                        "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True");
-      TString training2("MaxEpochs=2000,GeneratorLearningRate=1e-3,GeneratorMomentum=0.0,GeneratorRepetitions=1,"
-                        "GeneratorConvergenceSteps=20,GeneratorBatchSize=256,GeneratorTestRepetitions=10,"
-                        "GeneratorWeightDecay=1e-4,GeneratorRegularization=L2,"
-                        "GeneratorDropConfig=0.0+0.0+0.0+0.0, GeneratorMultithreading=True,"
-			"DiscriminatorLearningRate=1e-3,DiscriminatorMomentum=0.0,DiscriminatorRepetitions=1,"
-                        "DiscriminatorConvergenceSteps=20, DiscriminatorBatchSize=256, DiscriminatorTestRepetitions=10,"
-                        "DiscriminatorWeightDecay=1e-4, DiscriminatorRegularization=L2,"
-                        "DiscriminatorDropConfig=0.0+0.0+0.0+0.0, DiscriminatorMultithreading=True");
-      TString trainingStrategyString ("TrainingStrategy=");
-      trainingStrategyString += training0 + "|" + training1 + "|" + training2;
-
-      // General Options.
-      TString ganOptions ("!H:V:ErrorStrategy=CROSSENTROPY:VarTransform=N:"
-                          "WeightInitialization=XAVIERUNIFORM");
-
-      ganOptions.Append(":");
-      ganOptions.Append(inputLayoutString);
-
-      ganOptions.Append(":");
-      ganOptions.Append(batchLayoutString);
-      ganOptions.Append (":");
-      ganOptions.Append (layoutString);
-      ganOptions.Append (":");
-      ganOptions.Append (trainingStrategyString);
-
-      TString cpuOptions = ganOptions + ":Architecture=CPU";
-      factory->BookMethod(dataloader, TMVA::Types::kGAN, "GAN", cpuOptions);
    }
 
    // CF(Clermont-Ferrand)ANN

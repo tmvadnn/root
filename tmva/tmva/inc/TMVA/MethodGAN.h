@@ -1,5 +1,5 @@
 // @(#)root/tmva/tmva/dnn:$Id$
-// Author: Vladimir Ilievski, Saurav Shekhar
+// Author: Anushree Rankawat
 
 /**********************************************************************************
  * Project: TMVA - a Root-integrated toolkit for multivariate data analysis       *
@@ -11,8 +11,7 @@
  *      Generative Adversarial Networks                                           *
  *                                                                                *
  * Authors (alphabetical):                                                        *
- *      Vladimir Ilievski  <ilievski.vladimir@live.com> - CERN, Switzerland       *
- *      Saurav Shekhar     <sauravshekhar01@gmail.com> - ETH Zurich, Switzerland  *
+ *      Anushree Rankawat <anushreerankawat110@gmail.com>                         *
  *                                                                                *
  * Copyright (c) 2005-2015:                                                       *
  *      CERN, Switzerland                                                         *
@@ -52,6 +51,13 @@
 #include "TMVA/DNN/Architectures/Cuda.h"
 #endif
 
+#ifdef R__HAS_TMVACPU
+   using ArchitectureImpl_t = TMVA::DNN::TCpu<Double_t>;
+#else
+   using ArchitectureImpl_t = TMVA::DNN::TReference<Double_t>;
+#endif
+using DeepNetImpl_t = TMVA::DNN::TDeepNet<ArchitectureImpl_t>;
+
 #include "TMVA/DNN/Architectures/Reference.h"
 #include "TMVA/DNN/Functions.h"
 #include "TMVA/DNN/DeepNet.h"
@@ -65,8 +71,6 @@ using namespace TMVA::DNN;
 using Architecture_t = TCpu<Double_t>;
 using Scalar_t = Architecture_t::Scalar_t;
 using DeepNet_t = TMVA::DNN::TDeepNet<Architecture_t>;
-//using Matrix_t = typename TCpu<double>::Matrix_t;
-//using TensorInput = std::tuple<const std::vector<Matrix_t> &, const Matrix_t &, const Matrix_t &>;
 using TensorDataLoader_t = TTensorDataLoader<TMVAInput_t, Architecture_t>;
 
 using TMVA::DNN::EActivationFunction;
@@ -106,13 +110,6 @@ class MethodGAN : public MethodBase {
 private:
    // Key-Value vector type, contining the values for the training options
    using KeyValueVector_t = std::vector<std::map<TString, TString>>;
-   //using TensorInput = std::tuple<const std::vector<TMatrixT<Double_t>> &>;
-#ifdef R__HAS_TMVACPU
-   using ArchitectureImpl_t = TMVA::DNN::TCpu<Double_t>;
-#else
-   using ArchitectureImpl_t = TMVA::DNN::TReference<Double_t>;
-#endif
-   using DeepNetImpl_t = TMVA::DNN::TDeepNet<ArchitectureImpl_t>;
    std::unique_ptr<DeepNetImpl_t> generatorFNet, discriminatorFNet, combinedFNet;
    using Matrix_t = typename ArchitectureImpl_t::Matrix_t;
 
@@ -133,7 +130,7 @@ private:
     *  a reference in the function. */
    template <typename Architecture_t, typename Layer_t>
    void CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
-                      std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, std::unique_ptr<DeepNetImpl_t> &fNet, TString layoutString);
+                      std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, std::unique_ptr<DeepNetImpl_t> &modelNet, TString layoutString);
 
    size_t fGeneratorInputDepth;  ///< The depth of the input of the generator.
    size_t fGeneratorInputHeight; ///< The height of the input of the generator.
@@ -197,20 +194,22 @@ public:
    void Train();
 
    Double_t GetMvaValue(Double_t *err = 0, Double_t *errUpper = 0);
-   Double_t GetMvaValueGAN(std::unique_ptr<DeepNetImpl_t> & fNet, Double_t *err = 0, Double_t *errUpper = 0);
-
+   Double_t GetMvaValueGAN(std::unique_ptr<DeepNetImpl_t> & modelNet, Double_t *err = 0, Double_t *errUpper = 0);
    void CreateNoisyMatrices(std::vector<TMatrixT<Double_t>> &inputTensor, TMatrixT<Double_t> &outputMatrix, TMatrixT<Double_t> &weights, DeepNet_t &DeepNet, size_t nSamples, size_t classLabel);
    Double_t ComputeLoss(TTensorDataLoader<TensorInput, Architecture_t> &generalDataloader, DeepNet_t &DeepNet);
    Double_t ComputeLoss(TTensorDataLoader<TMVAInput_t, Architecture_t> &generalDataloader, DeepNet_t &DeepNet);
-   void CreateDiscriminatorFakeData(std::vector<TMatrixT<Double_t>> &predTensor,  TMatrixT<Double_t> &outputMatrix, TMatrixT<Double_t> &weights, TTensorDataLoader<TensorInput, Architecture_t> &trainingData, DeepNet_t &genDeepNet, DeepNet_t &disDeepNet, size_t nSamples, size_t classLabel);
-   void CombineGAN(DeepNet_t &combinedDeepNet, DeepNet_t &generatorNet, DeepNet_t &discriminatorNet);
-
-   //void AddWeightsXMLToGAN(std::unique_ptr<DeepNetImpl_t> & fNet, void * parent);
+   void CreateDiscriminatorFakeData(std::vector<TMatrixT<Double_t>> &predTensor,  TMatrixT<Double_t> &outputMatrix, TMatrixT<Double_t> &weights, TTensorDataLoader<TensorInput, Architecture_t> &trainingData, DeepNet_t &genDeepNet, DeepNet_t &disDeepNet, EOutputFunction outputFunction, size_t nSamples, size_t classLabel, size_t epochs);
+   void CombineGAN(DeepNet_t &combinedDeepNet, DeepNet_t &generatorNet, DeepNet_t &discriminatorNet, std::unique_ptr<DeepNetImpl_t> & combinedNet);
+   void SetDiscriminatorLayerTraining(DeepNet_t &discrimatorNet);
 
    /*! Methods for writing and reading weights */
    using MethodBase::ReadWeightsFromStream;
    void AddWeightsXMLTo(void *parent) const;
+   void AddWeightsXMLToGenerator(void *parent) const;
+   void AddWeightsXMLToDiscriminator(void *parent) const;
    void ReadWeightsFromXML(void *wghtnode);
+   void ReadWeightsFromXMLGenerator(void *rootXML);
+   void ReadWeightsFromXMLDiscriminator(void *rootXML);
    void ReadWeightsFromStream(std::istream &);
 
    /* Create ranking */

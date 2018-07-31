@@ -764,8 +764,8 @@ void TMVA::MethodBase::AddRegressionOutput(Types::ETreeType type)
    regRes->Resize( nEvents );
 
    // Drawing the progress bar every event was causing a huge slowdown in the evaluation time
-   // So we set some parameters to draw the progress bar a total of totalProgressDraws, i.e. only draw every 1 in 100 
-   
+   // So we set some parameters to draw the progress bar a total of totalProgressDraws, i.e. only draw every 1 in 100
+
    Int_t totalProgressDraws = 100; // total number of times to update the progress bar
    Int_t drawProgressEvery = 1;    // draw every nth event such that we have a total of totalProgressDraws
    if(nEvents >= totalProgressDraws) drawProgressEvery = nEvents/totalProgressDraws;
@@ -1570,7 +1570,7 @@ void TMVA::MethodBase::ReadStateFromXML( void* methodNode )
             fMVAPdfB->ReadXML(pdfnode);
          }
       }
-      else if (nodeName=="Weights") {
+      else if (nodeName.SubString("Weights")=="Weights") {
          ReadWeightsFromXML(ch);
       }
       else {
@@ -1994,7 +1994,7 @@ TDirectory* TMVA::MethodBase::BaseDir() const
          sdir = methodDir->mkdir(defaultDir);
          sdir->cd();
          // write weight file name into target file
-         if (fModelPersistence) { 
+         if (fModelPersistence) {
             TObjString wfilePath( gSystem->WorkingDirectory() );
             TObjString wfileName( GetWeightFileName() );
             wfilePath.Write( "TrainingPath" );
