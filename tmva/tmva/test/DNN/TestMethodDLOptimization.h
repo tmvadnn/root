@@ -50,8 +50,8 @@ void testMethodDL_DNN(TString architectureStr, TString optimizerStr)
    TMVA::Config::Instance();
 
    TFile *input(0);
-   // TString fname = "tmva_class_example.root";
-   TString fname = "http://root.cern.ch/files/tmva_class_example.root";
+   TString fname = "tmva_class_example.root";
+   // TString fname = "http://root.cern.ch/files/tmva_class_example.root";
    TString fopt = "CACHEREAD";
    input = TFile::Open(fname, fopt);
 
@@ -101,17 +101,17 @@ void testMethodDL_DNN(TString architectureStr, TString optimizerStr)
                      ",Momentum=0.9,Repetitions=1,"
                      "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
                      "WeightDecay=1e-4,Regularization=L2,"
-                     "DropConfig=0.0+0.5+0.5+0.5, Multithreading=True");
+                     "DropConfig=0.0+0.5+0.5+0.5,Multithreading=True");
    TString training1("LearningRate=1e-2,Optimizer=" + optimizerStr +
                      ",Momentum=0.9,Repetitions=1,"
                      "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
                      "WeightDecay=1e-4,Regularization=L2,"
-                     "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True");
+                     "DropConfig=0.0+0.0+0.0+0.0,Multithreading=True");
    TString training2("LearningRate=1e-3,Optimizer=" + optimizerStr +
                      ",Momentum=0.9,Repetitions=1,"
                      "ConvergenceSteps=20,BatchSize=256,TestRepetitions=10,"
                      "WeightDecay=1e-4,Regularization=L2,"
-                     "DropConfig=0.0+0.0+0.0+0.0, Multithreading=True");
+                     "DropConfig=0.0+0.0+0.0+0.0,Multithreading=True");
    TString trainingStrategyString("TrainingStrategy=");
    trainingStrategyString += training0 + "|" + training1 + "|" + training2;
 

@@ -36,7 +36,12 @@ int main()
    TString archCPU = "CPU";
 
    // SGD Optimizer
+   std::cout << "SGD Optimizer:" << std::endl;
    testMethodDL_DNN(archCPU, "SGD");
+
+   // Adam Optimizer
+   std::cout << "Adam Optimizer:" << std::endl;
+   testMethodDL_DNN(archCPU, "ADAM");
 
    return 0;
 }
