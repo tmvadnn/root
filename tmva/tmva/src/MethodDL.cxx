@@ -497,7 +497,7 @@ void MethodDL::CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
          Log() << kFATAL << "LSTM Layer is not yet fully implemented" << Endl;
          //ParseLstmLayer(deepNet, nets, layerString->GetString(), subDelimiter);
       } else if (strLayerType == "PADDING") {
-         ParseRnnLayer(deepNet, nets, layerString->GetString(), subDelimiter);
+         ParsePaddingLayer(deepNet, nets, layerString->GetString(), subDelimiter);
       }
    }
 }

@@ -565,6 +565,7 @@ TPaddingLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddPaddingLaye
    size_t inputDepth;
    size_t inputHeight;
    size_t inputWidth;
+   size_t depth;
    size_t height;
    size_t width;
    size_t outputNSlices = this->GetBatchSize();
@@ -582,8 +583,12 @@ TPaddingLayer<Architecture_t> *TDeepNet<Architecture_t, Layer_t>::AddPaddingLaye
       inputWidth = lastLayer->GetWidth();
    }
 
+   depth = inputDepth;
+   height = inputHeight + topPad + bottomPad;
+   width = inputWidth + leftPad + rightPad;
+
    TPaddingLayer<Architecture_t> *paddingLayer = new TPaddingLayer<Architecture_t>(
-      batchSize, inputDepth, inputHeight, inputWidth, topPad, bottomPad, leftPad, rightPad);
+      batchSize, inputDepth, inputHeight, inputWidth, depth, height, width, topPad, bottomPad, leftPad, rightPad);
 
    // But this creates a copy or what?
    fLayers.push_back(paddingLayer);

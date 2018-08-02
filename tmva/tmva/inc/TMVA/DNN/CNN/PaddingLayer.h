@@ -59,7 +59,7 @@ private:
 
 public:
 	/*! Constructor. */
-	TPaddingLayer(size_t BatchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth, size_t TopPad, size_t BottomPad, size_t LeftPad, size_t RightPad);
+	TPaddingLayer(size_t BatchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth, size_t depth, size_t height, size_t width, size_t TopPad, size_t BottomPad, size_t LeftPad, size_t RightPad);
 
 	/*! Copy the conv layer provided as a pointer */
 	TPaddingLayer(TPaddingLayer<Architecture_t> *layer);
@@ -108,8 +108,9 @@ public:
 
 template <typename Architecture_t>
 TPaddingLayer<Architecture_t>::TPaddingLayer(size_t batchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
+                                             size_t depth, size_t height, size_t width,
                                              size_t topPad, size_t bottomPad, size_t leftPad, size_t rightPad)
-   : VGeneralLayer<Architecture_t>(batchSize, inputDepth, inputHeight, inputWidth, 0, 0, 0, 0, 0, 0, 0, 0,
+   : VGeneralLayer<Architecture_t>(batchSize, inputDepth, inputHeight, inputWidth, depth, height, width, 0, 0, 0, 0, 0,
                                    0, batchSize, inputDepth, calculateDimension(inputHeight, inputWidth, leftPad, rightPad, topPad, bottomPad), EInitialization::kZero),
      fTopPad(topPad), fBottomPad(bottomPad), fLeftPad(leftPad), fRightPad(rightPad)
 {
@@ -173,7 +174,7 @@ auto TPaddingLayer<Architecture_t>::Print() const -> void
    std::cout << " PADDING Layer \t ";
    std::cout << "Input = ( " << this->GetInputDepth() << " , " <<  this->GetInputHeight() << " , " << this->GetInputWidth() << " ) ";
    if (this->GetOutput().size() > 0) {
-      std::cout << "\tOutput = ( " << this->GetOutput().size() << " , " << this->GetOutputHeight() << " , " << this->GetOutputWidth() << " ) ";
+      std::cout << "\tOutput = ( " << this->GetOutput().size() << " , " << this->GetOutput()[0].GetNrows() << " , " << this->GetOutput()[0].GetNcols() << " ) ";
    }
    std::cout << std::endl;
 }
@@ -184,10 +185,10 @@ auto TPaddingLayer<Architecture_t>::AddWeightsXMLTo(void *parent) -> void
    auto layerxml = gTools().xmlengine().NewChild(parent, 0, "PaddingLayer");
 
    // write info for padding layer
-   gTools().xmlengine().NewAttr(layerxml, 0, "Left Pad", gTools().StringFromInt(this->GetLeftPadding()));
-   gTools().xmlengine().NewAttr(layerxml, 0, "Right Pad", gTools().StringFromInt(this->GetRightPadding()));
-   gTools().xmlengine().NewAttr(layerxml, 0, "Top Pad", gTools().StringFromInt(this->GetTopPadding()));
-   gTools().xmlengine().NewAttr(layerxml, 0, "Bottom Pad", gTools().StringFromInt(this->GetBottomPadding()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "LeftPad", gTools().StringFromInt(this->GetLeftPadding()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "RightPad", gTools().StringFromInt(this->GetRightPadding()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "TopPad", gTools().StringFromInt(this->GetTopPadding()));
+   gTools().xmlengine().NewAttr(layerxml, 0, "BottomPad", gTools().StringFromInt(this->GetBottomPadding()));
 
 
 }
