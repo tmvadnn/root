@@ -11,6 +11,9 @@ include_directories(${CLING_INCLUDE_DIRS})
 # headers from our builtin clang. That's an issue when we are building with bultin_llvm=Off
 # and we have installed clang headers, too.
 include_directories(SYSTEM ${CLANG_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
+
+include_directories(SYSTEM ${CLAD_INCLUDE_DIRS})
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CLING_CXXFLAGS}")
 
 if(MSVC)
@@ -48,11 +51,21 @@ if(NOT builtin_clang)
   link_directories("${LLVM_LIBRARY_DIR}")
 endif()
 
+# We need to paste the content of the cling plugins disabling link symbol optimizations.
+# FIXME: Windows!
+set(CLING_PLUGIN_LINK_LIBS)
+if (APPLE)
+  set(CLING_PLUGIN_LINK_LIBS -Wl,-force_load cladPlugin -Wl,-force_load cladDifferentiator)
+elseif(NOT MSVC)
+  set(CLING_PLUGIN_LINK_LIBS -Wl,--whole-archive cladPlugin cladDifferentiator -Wl,--no-whole-archive)
+endif()
+
 ROOT_LINKER_LIBRARY(Cling
         $<TARGET_OBJECTS:ClingUtils>
         $<TARGET_OBJECTS:Dictgen>
         $<TARGET_OBJECTS:MetaCling>
-        LIBRARIES ${CLING_LIBRARIES} ${LINK_LIBS})
+        LIBRARIES ${CLING_LIBRARIES} ${LINK_LIBS} ${CLING_PLUGIN_LINK_LIBS})
+
 
 if(MSVC)
   set_target_properties(Cling PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
@@ -104,7 +117,7 @@ if(MSVC)
 endif()
 
 if(APPLE)
-  target_link_libraries(Cling -Wl,-bind_at_load -Wl,-undefined -Wl,dynamic_lookup)
+  target_link_libraries(Cling PUBLIC -Wl,-bind_at_load -Wl,-undefined -Wl,dynamic_lookup)
 elseif(NOT MSVC)
-  target_link_libraries(Cling -Wl,--unresolved-symbols=ignore-in-object-files)
+  target_link_libraries(Cling PUBLIC -Wl,--unresolved-symbols=ignore-in-object-files)
 endif()

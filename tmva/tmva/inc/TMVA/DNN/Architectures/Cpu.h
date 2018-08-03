@@ -19,12 +19,13 @@
 #define TMVA_DNN_ARCHITECTURES_CPU
 
 #include "TMVA/DNN/Functions.h"
+#include "TMVA/DNN/CNN/ConvLayer.h"
 
 #include "Cpu/CpuBuffer.h"
 #include "Cpu/CpuMatrix.h"
 #include <vector>
 
-class TRandom; 
+class TRandom;
 
 namespace TMVA
 {
@@ -302,11 +303,22 @@ public:
     */
    ///@{
 
+   /** Calculate how many neurons "fit" in the output layer, given the input as well as the layer's hyperparameters. */
+   static size_t calculateDimension(size_t imgDim, size_t fltDim, size_t padding, size_t stride);
+
    /** Transform the matrix B in local view format, suitable for
     *  convolution, and store it in matrix A */
-   static void Im2col(TCpuMatrix<AReal> &A, const TCpuMatrix<AReal> &B, size_t imgHeight, size_t imgWidth, size_t fltHeight,
-                      size_t fltWidth, size_t strideRows, size_t strideCols, size_t zeroPaddingHeight,
+   static void Im2col(TCpuMatrix<AReal> &A,
+                      const TCpuMatrix<AReal> &B,
+                      size_t imgHeight,
+                      size_t imgWidth,
+                      size_t fltHeight,
+                      size_t fltWidth,
+                      size_t strideRows,
+                      size_t strideCols,
+                      size_t zeroPaddingHeight,
                       size_t zeroPaddingWidth);
+
    static void Im2colIndices(std::vector<int> &V, const TCpuMatrix<AReal> &B, size_t nLocalViews, size_t imgHeight, size_t imgWidth, size_t fltHeight,
                       size_t fltWidth, size_t strideRows, size_t strideCols, size_t zeroPaddingHeight,
                       size_t zeroPaddingWidth);
@@ -322,12 +334,11 @@ public:
    ///@}
 
    /** Forward propagation in the Convolutional layer */
-   static void ConvLayerForward(std::vector<TCpuMatrix<Scalar_t>> & output, std::vector<TCpuMatrix<Scalar_t>> & derivatives,
+   static void ConvLayerForward(std::vector<TCpuMatrix<Scalar_t>> & output,
+                                std::vector<TCpuMatrix<Scalar_t>> & derivatives,
                                 const std::vector<TCpuMatrix<Scalar_t>> &input,
-                                const TCpuMatrix<Scalar_t> & weights, const TCpuMatrix<Scalar_t> & biases,
-                                EActivationFunction func, const std::vector<int> & vIndices,
-                                size_t nlocalViews, size_t nlocalViewPixels,
-                                Scalar_t dropoutProbability, bool applyDropout);
+                                const TCpuMatrix<Scalar_t> &weights, const TCpuMatrix<Scalar_t> & biases,
+                                const DNN::CNN::TConvParams & params, EActivationFunction activFunc);
 
    /** @name Backward Propagation in Convolutional Layer
     */
@@ -396,9 +407,15 @@ public:
    /** Perform the complete backward propagation step in a Pooling Layer. Based on the
     *  winning idices stored in the index matrix, it just forwards the actiovation
     *  gradients to the previous layer. */
-   static void MaxPoolLayerBackward(std::vector<TCpuMatrix<AReal>> &activationGradientsBackward,
-                                    const std::vector<TCpuMatrix<AReal>> &activationGradients,
-                                    const std::vector<TCpuMatrix<AReal>> &indexMatrix, size_t batchSize, size_t depth,
+   static void MaxPoolLayerBackward(TCpuMatrix<AReal> &activationGradientsBackward,
+                                    const TCpuMatrix<AReal> &activationGradients,
+                                    const TCpuMatrix<AReal> &indexMatrix,
+                                    size_t imgHeight,
+                                    size_t imgWidth,
+                                    size_t fltHeight,
+                                    size_t fltWidth,
+                                    size_t strideRows,
+                                    size_t strideCols,
                                     size_t nLocalViews);
 
    ///@}
@@ -470,6 +487,33 @@ public:
    /** Compute the sum of all elements in \p A */
    static Scalar_t Sum(const TCpuMatrix<Scalar_t> &A);
 
+   /** Check two matrices for equality, taking floating point arithmetic errors into account. */
+   static bool AlmostEquals(const TCpuMatrix<Scalar_t> &A, const TCpuMatrix<Scalar_t> &B, double epsilon = 0.1);
+
+   /** Add the constant \p beta to all the elements of matrix \p A and write the
+    * result into \p A.
+    */
+   static void ConstAdd(TCpuMatrix<Scalar_t> &A, Scalar_t beta);
+
+   /** Multiply the constant \p beta to all the elements of matrix \p A and write the
+    * result into \p A.
+    */
+   static void ConstMult(TCpuMatrix<Scalar_t> &A, Scalar_t beta);
+
+   /** Reciprocal each element of the matrix \p A and write the result into
+    * \p A
+    */
+   static void ReciprocalElementWise(TCpuMatrix<Scalar_t> &A);
+
+   /** Square each element of the matrix \p A and write the result into
+    * \p A
+    */
+   static void SquareElementWise(TCpuMatrix<Scalar_t> &A);
+
+   /** Square root each element of the matrix \p A and write the result into
+    * \p A
+    */
+   static void SqrtElementWise(TCpuMatrix<Scalar_t> &A);
 };
 
 //____________________________________________________________________________

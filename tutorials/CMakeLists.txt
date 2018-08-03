@@ -37,6 +37,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CTestCustom.cmake ${CMAKE_CURRENT_BIN
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/rootlogon.C "{
   // Needed by ACLiC to use the current dicrectory for scratch area
   gSystem->SetBuildDir(\".\", kTRUE);
+  gROOT->SetWebDisplay(\"batch\");
 }")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/rootalias.C "")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/rootlogoff.C "{}")
@@ -138,7 +139,7 @@ if(NOT TBB_FOUND AND NOT builtin_tbb)
 endif()
 
 if(NOT ROOT_imt_FOUND)
-  set(imt_veto multicore/imt*.C multicore/mt*.C dataframe/df018_customActions.C)
+  set(imt_veto multicore/imt*.C multicore/mt*.C)
 else()
   if(MSVC)
     #---Multiproc is not supported on Windows
@@ -189,8 +190,10 @@ else()
   endif()
 endif()
 
-if(ROOT_root7_FOUND)
-  set(root7_veto dataframe/df013_InspectAnalysis.C)
+if(root7)
+  set(root7_veto dataframe/df013_InspectAnalysis.C
+                 v7/fitpanel.cxx
+      )
 endif()
 
 #---These ones are disabled !!! ------------------------------------
@@ -246,8 +249,8 @@ set(all_veto hsimple.C
              )
 
 file(GLOB_RECURSE tutorials RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.C)
-if(ROOT_root7_FOUND)
-  file(GLOB_RECURSE tutorials_v7 RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/v7 *.cxx)
+if(root7)
+  file(GLOB_RECURSE tutorials_v7 RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} v7/*.cxx)
   list(APPEND tutorials ${tutorials_v7})
 endif()
 file(GLOB tutorials_veto RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${all_veto})

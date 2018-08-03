@@ -21,16 +21,16 @@
 
 R__LOAD_LIBRARY(libROOTGpadv7);
 
-#include "ROOT/THist.hxx"
-#include "ROOT/TCanvas.hxx"
+#include "ROOT/RHist.hxx"
+#include "ROOT/RCanvas.hxx"
 
 void draw_th1() {
    using namespace ROOT;
 
    // Create the histogram.
-   Experimental::TAxisConfig xaxis(10, 0., 10.);
-   auto pHist = std::make_shared<Experimental::TH1D>(xaxis);
-   auto pHist2 = std::make_shared<Experimental::TH1D>(xaxis);
+   Experimental::RAxisConfig xaxis(10, 0., 10.);
+   auto pHist = std::make_shared<Experimental::RH1D>(xaxis);
+   auto pHist2 = std::make_shared<Experimental::RH1D>(xaxis);
 
    // Fill a few points.
    pHist->Fill(1);
@@ -44,10 +44,12 @@ void draw_th1() {
    pHist2->Fill(7);
 
    // Create a canvas to be displayed.
-   auto canvas = Experimental::TCanvas::Create("Canvas Title");
-   canvas->Draw(pHist)->SetLineColor(Experimental::TColor::kRed);
-   canvas->Draw(pHist2)->SetLineColor(Experimental::TColor::kBlue);
+   auto canvas = Experimental::RCanvas::Create("Canvas Title");
+   canvas->Draw(pHist)->SetLineColor(Experimental::RColor::kRed);
+   canvas->Draw(pHist2)->SetLineColor(Experimental::RColor::kBlue);
 
    canvas->Show();
-   canvas->SaveAs("th1.png");
+   // Saving to PNG doesn't work reliably in batch yet:
+   if (!gROOT->IsWebDisplayBatch())
+      canvas->SaveAs("th1.png");
 }

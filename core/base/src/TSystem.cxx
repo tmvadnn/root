@@ -1353,6 +1353,10 @@ int TSystem::Symlink(const char *, const char *)
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Unlink, i.e. remove, a file.
+///
+/// If the file is currently open by the current or another process, the behavior of this function is
+/// implementation-defined (in particular, POSIX systems unlink the file name, while Windows does not allow the
+/// file to be deleted and the operation is a no-op).
 
 int TSystem::Unlink(const char *)
 {
@@ -3501,7 +3505,7 @@ int TSystem::CompileMacro(const char *filename, Option_t *opt,
    rcling += " -v0 \"--lib-list-prefix=";
    rcling += mapfile;
    rcling += "\" -f \"";
-   rcling.Append(dict).Append("\" -c -p ");
+   rcling.Append(dict).Append("\" ");
    if (produceRootmap) {
       rcling += " -rml " + libname + " -rmf \"" + libmapfilename + "\" ";
    }

@@ -165,7 +165,7 @@ namespace cling {
            m_DyLibManager && m_LookupHelper &&
            (isInSyntaxOnlyMode() || m_Executor);
   }
-  
+
   namespace internal { void symbol_requester(); }
 
   const char* Interpreter::getVersion() {
@@ -673,7 +673,7 @@ namespace cling {
     }
     return Value;
   }
-  
+
   ///\brief Maybe transform the input line to implement cint command line
   /// semantics (declarations are global) and compile to produce a module.
   ///
@@ -869,11 +869,11 @@ namespace cling {
     // Ignore diagnostics when we tab complete.
     // This is because we get redefinition errors due to the import of the decls.
     clang::IgnoringDiagConsumer* ignoringDiagConsumer =
-                                            new clang::IgnoringDiagConsumer();                      
+                                            new clang::IgnoringDiagConsumer();
     childSemaRef.getDiagnostics().setClient(ignoringDiagConsumer, true);
     DiagnosticsEngine& parentDiagnostics = this->getCI()->getSema().getDiagnostics();
 
-    std::unique_ptr<DiagnosticConsumer> ownerDiagConsumer = 
+    std::unique_ptr<DiagnosticConsumer> ownerDiagConsumer =
                                                 parentDiagnostics.takeClient();
     auto clientDiagConsumer = parentDiagnostics.getClient();
     parentDiagnostics.setClient(ignoringDiagConsumer, /*owns*/ false);
@@ -1528,9 +1528,6 @@ namespace cling {
   Interpreter::executeTransaction(Transaction& T) {
     assert(!isInSyntaxOnlyMode() && "Running on what?");
     assert(T.getState() == Transaction::kCommitted && "Must be committed");
-
-    if (InterpreterCallbacks* callbacks = getCallbacks())
-      callbacks->beforeExecuteTransaction(T);
 
     const std::shared_ptr<llvm::Module>& M = T.getModule();
     if (!M)

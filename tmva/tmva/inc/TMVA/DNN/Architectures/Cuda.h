@@ -19,7 +19,7 @@
 #define TMVA_DNN_ARCHITECTURES_CUDA
 
 #include "TMVA/DNN/Functions.h"
-
+#include "TMVA/DNN/CNN/ConvLayer.h"
 
 #include "cuda.h"
 #include "Cuda/CudaBuffers.h"
@@ -132,7 +132,6 @@ public:
    template<typename AMatrix_t>
    static void CopyDiffArch(std::vector<TCudaMatrix<Scalar_t>> & A,
                     const std::vector<AMatrix_t> & B);
-
 
    ///@}
 
@@ -308,16 +307,28 @@ public:
     */
    ///@{
 
+   /** Calculate how many neurons "fit" in the output layer, given the input as well as the layer's hyperparameters. */
+   static size_t calculateDimension(size_t imgDim, size_t fltDim, size_t padding, size_t stride);
+
    /** Transform the matrix \p B in local view format, suitable for
     *  convolution, and store it in matrix \p A. */
-   static void Im2col(TCudaMatrix<AFloat> &A, const TCudaMatrix<AFloat> &B, size_t imgHeight, size_t imgWidth,
-                      size_t fltHeight, size_t fltWidth, size_t strideRows, size_t strideCols, size_t zeroPaddingHeight,
+   static void Im2col(TCudaMatrix<AFloat> &A,
+                      const TCudaMatrix<AFloat> &B,
+                      size_t imgHeight,
+                      size_t imgWidth,
+                      size_t fltHeight,
+                      size_t fltWidth,
+                      size_t strideRows,
+                      size_t strideCols,
+                      size_t zeroPaddingHeight,
                       size_t zeroPaddingWidth);
 
-   static void Im2colIndices(std::vector<int> &V, const TCudaMatrix<AFloat> &B, size_t nLocalViews, size_t imgHeight, size_t imgWidth, size_t fltHeight,
-                      size_t fltWidth, size_t strideRows, size_t strideCols, size_t zeroPaddingHeight,
-                             size_t zeroPaddingWidth) {}
-   static void Im2colFast(TCudaMatrix<AFloat> &A, const TCudaMatrix<AFloat> &B, const std::vector<int> & V) {}
+   static void Im2colIndices(std::vector<int> & /* V */, const TCudaMatrix<AFloat> & /* B */, size_t /* nLocalViews */,
+                             size_t /* imgHeight */, size_t /* imgWidth */, size_t /* fltHeight */,
+                             size_t /* fltWidth */, size_t /* strideRows */, size_t /* strideCols */,
+                             size_t /* zeroPaddingHeight */, size_t /* zeroPaddingWidth */) {}
+   static void Im2colFast(TCudaMatrix<AFloat> & /* A */, const TCudaMatrix<AFloat> & /* B */,
+                          const std::vector<int> & /* V */) {}
 
 
    /** Rotates the matrix \p B, which is representing a weights,
@@ -330,12 +341,11 @@ public:
 
    ///@}
    /** Forward propagation in the Convolutional layer */
-   static void ConvLayerForward(std::vector<TCudaMatrix<AFloat>> & output, std::vector<TCudaMatrix<AFloat>> & derivatives,
+   static void ConvLayerForward(std::vector<TCudaMatrix<AFloat>> & output,
+                                std::vector<TCudaMatrix<AFloat>> & derivatives,
                                 const std::vector<TCudaMatrix<AFloat>> &input,
-                                const TCudaMatrix<Scalar_t> & weights, const TCudaMatrix<Scalar_t> & biases,
-                                EActivationFunction func, const std::vector<int> & vIndices,
-                                size_t nlocalViews, size_t nlocalViewPixels,
-                                Scalar_t dropoutProbability, bool applyDropout) {}
+                                const TCudaMatrix<AFloat> &weights, const TCudaMatrix<AFloat> & biases,
+                                const DNN::CNN::TConvParams & params, EActivationFunction activFunc);
 
    /** @name Backward Propagation in Convolutional Layer
     */
@@ -405,9 +415,15 @@ public:
    /** Perform the complete backward propagation step in a Pooling Layer. Based on the
     *  winning idices stored in the index matrix, it just forwards the actiovation
     *  gradients to the previous layer. */
-   static void MaxPoolLayerBackward(std::vector<TCudaMatrix<AFloat>> &activationGradientsBackward,
-                                    const std::vector<TCudaMatrix<AFloat>> &activationGradients,
-                                    const std::vector<TCudaMatrix<AFloat>> &indexMatrix, size_t batchSize, size_t depth,
+   static void MaxPoolLayerBackward(TCudaMatrix<AFloat> &activationGradientsBackward,
+                                    const TCudaMatrix<AFloat> &activationGradients,
+                                    const TCudaMatrix<AFloat> &indexMatrix,
+                                    size_t imgHeight,
+                                    size_t imgWidth,
+                                    size_t fltHeight,
+                                    size_t fltWidth,
+                                    size_t strideRows,
+                                    size_t strideCols,
                                     size_t nLocalViews);
 
    ///@}
@@ -465,13 +481,46 @@ public:
     */
    static void Hadamard(TCudaMatrix<AFloat> & A, const TCudaMatrix<AFloat> & B);
 
-   /** Sum columns of (m x n) matrixx \p A and write the results into the first
-    * m elements in \p A.
+   /** Sum columns of (m x n) matrix \p A and write the results into the first
+    * m elements in \p B.
     */
    static void SumColumns(TCudaMatrix<AFloat> & B, const TCudaMatrix<AFloat> & A);
 
+   /** Sum rows of (m x n) matrix \p A and write the results into the first
+   * m elements in \p B.
+   */
+   static void SumRows(TCudaMatrix<AFloat> & B, const TCudaMatrix<AFloat> & A);
+
    /** Compute the sum of all elements in \p A */
    static AFloat Sum(const TCudaMatrix<AFloat> &A);
+
+   /** Check two matrices for equality, taking floating point arithmetic errors into account. */
+   static bool AlmostEquals(const TCudaMatrix<AFloat> &A, const TCudaMatrix<AFloat> &B, double epsilon = 0.1);
+
+   /** Add the constant \p beta to all the elements of matrix \p A and write the
+    * result into \p A.
+    */
+   static void ConstAdd(TCudaMatrix<AFloat> &A, AFloat beta);
+
+   /** Multiply the constant \p beta to all the elements of matrix \p A and write the
+    * result into \p A.
+    */
+   static void ConstMult(TCudaMatrix<AFloat> &A, AFloat beta);
+
+   /** Reciprocal each element of the matrix \p A and write the result into
+    * \p A
+    */
+   static void ReciprocalElementWise(TCudaMatrix<AFloat> &A);
+
+   /** Square each element of the matrix \p A and write the result into
+    * \p A
+    */
+   static void SquareElementWise(TCudaMatrix<AFloat> &A);
+
+   /** Square root each element of the matrix \p A and write the result into
+    * \p A
+    */
+   static void SqrtElementWise(TCudaMatrix<AFloat> &A);
 };
 
 //____________________________________________________________________________

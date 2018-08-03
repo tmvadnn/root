@@ -51,6 +51,8 @@ namespace ROOT {
       /// \endcond
       template<class F, class T>
       void Foreach(F func, std::vector<T> &args);
+      template<class F, class T>
+      void Foreach(F func, const std::vector<T> &args);
 
       using TExecutor<TThreadExecutor>::Map;
       template<class F, class Cond = noReferenceCond<F>>
@@ -144,6 +146,14 @@ namespace ROOT {
    }
 
    //////////////////////////////////////////////////////////////////////////
+   /// Execute func in parallel, taking an element of a std::vector as argument.
+   template<class F, class T>
+   void TThreadExecutor::Foreach(F func, const std::vector<T> &args) {
+        unsigned int nToProcess = args.size();
+        ParallelFor(0U, nToProcess, 1, [&](unsigned int i){func(args[i]);});
+   }
+
+   //////////////////////////////////////////////////////////////////////////
    /// Execute func (with no arguments) nTimes in parallel.
    /// A vector containg executions' results is returned.
    /// Functions that take more than zero arguments can be executed (with
@@ -172,7 +182,7 @@ namespace ROOT {
       unsigned seqStep = args.step();
 
       using retType = decltype(func(start));
-      std::vector<retType> reslist(end - start);
+      std::vector<retType> reslist(args.size());
       auto lambda = [&](unsigned int i)
       {
          reslist[i] = func(i);

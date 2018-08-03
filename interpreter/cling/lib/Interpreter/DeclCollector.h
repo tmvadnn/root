@@ -11,7 +11,6 @@
 #define CLING_DECL_COLLECTOR_H
 
 #include "clang/AST/ASTConsumer.h"
-#include "clang/Serialization/ASTDeserializationListener.h"
 
 #include "ASTTransformer.h"
 
@@ -25,7 +24,6 @@ namespace clang {
   class DeclGroupRef;
   class Preprocessor;
   class Token;
-  class Module;
 }
 
 namespace cling {
@@ -42,7 +40,7 @@ namespace cling {
   /// cling::DeclCollector is responsible for appending all the declarations
   /// seen by clang.
   ///
-  class DeclCollector : public clang::ASTConsumer , public clang::ASTDeserializationListener {
+  class DeclCollector : public clang::ASTConsumer {
     /// \brief PPCallbacks overrides/ Macro support
     class PPAdapter;
 
@@ -54,9 +52,9 @@ namespace cling {
     ///
     std::vector<std::unique_ptr<WrapperTransformer>> m_WrapperTransformers;
 
-    IncrementalParser* m_IncrParser;
-    clang::ASTConsumer* m_Consumer;
-    Transaction* m_CurTransaction;
+    IncrementalParser* m_IncrParser = nullptr;
+    std::unique_ptr<clang::ASTConsumer> m_Consumer;
+    Transaction* m_CurTransaction = nullptr;
 
     /// Whether Transform() is active; prevents recursion.
     bool m_Transforming = false;
@@ -76,8 +74,7 @@ namespace cling {
     ASTTransformer::Result TransformDecl(clang::Decl* D) const;
 
   public:
-    DeclCollector() :
-      m_IncrParser(0), m_Consumer(0), m_CurTransaction(0) {}
+    DeclCollector() {}
 
     virtual ~DeclCollector();
 
@@ -91,7 +88,8 @@ namespace cling {
         WT->SetConsumer(this);
     }
 
-    void Setup(IncrementalParser* IncrParser, ASTConsumer* Consumer,
+    void Setup(IncrementalParser* IncrParser,
+               std::unique_ptr<ASTConsumer> Consumer,
                clang::Preprocessor& PP);
 
     /// \{
@@ -118,11 +116,6 @@ namespace cling {
 
     // dyn_cast/isa support
     static bool classof(const clang::ASTConsumer*) { return true; }
-    static bool classof(const clang::ASTDeserializationListener*) { return true; }
-
-    ///\brief ASTDeserializationListener function which gets callback when a decl is deserialized
-    void DeclRead(clang::serialization::DeclID, const clang::Decl *D) final;
-
   };
 } // namespace cling
 

@@ -20,6 +20,7 @@
 
 #include "TMatrix.h"
 #include "TMVA/DNN/Functions.h"
+#include "TMVA/DNN/CNN/ConvLayer.h"
 #include "TMVA/DNN/Architectures/Reference/DataLoader.h"
 #include "TMVA/DNN/Architectures/Reference/TensorDataLoader.h"
 #include <vector>
@@ -112,7 +113,7 @@ public:
 
    // copy from another type of matrix
    template<typename AMatrix_t>
-   static void CopyDiffArch(TMatrixT<Scalar_t> & A, const AMatrix_t & B); 
+   static void CopyDiffArch(TMatrixT<Scalar_t> & A, const AMatrix_t & B);
 
 
    /** Above functions extended to vectors */
@@ -275,11 +276,11 @@ public:
 
    // return static instance of random generator used for initialization
    // if generator does not exist it is created the first time with a random seed (e.g. seed = 0)
-   static TRandom & GetRandomGenerator(); 
+   static TRandom & GetRandomGenerator();
    // set random seed for the static geenrator
    // if the static geneerator does not exists it is created
-   static void SetRandomSeed(size_t seed); 
- 
+   static void SetRandomSeed(size_t seed);
+
 
    ///@}
 
@@ -310,9 +311,17 @@ public:
 
    /** Transform the matrix \p B in local view format, suitable for
     *  convolution, and store it in matrix \p A. */
-   static void Im2col(TMatrixT<AReal> &A, TMatrixT<AReal> &B, size_t imgHeight, size_t imgWidth, size_t fltHeight,
-                      size_t fltWidth, size_t strideRows, size_t strideCols, size_t zeroPaddingHeight,
+   static void Im2col(TMatrixT<AReal> &A,
+                      const TMatrixT<AReal> &B,
+                      size_t imgHeight,
+                      size_t imgWidth,
+                      size_t fltHeight,
+                      size_t fltWidth,
+                      size_t strideRows,
+                      size_t strideCols,
+                      size_t zeroPaddingHeight,
                       size_t zeroPaddingWidth);
+
    static void Im2colIndices(std::vector<int> &, const TMatrixT<AReal> &, size_t, size_t, size_t, size_t ,
                       size_t , size_t , size_t , size_t ,size_t ) {
       Fatal("Im2ColIndices","This function is not implemented for ref architectures");
@@ -337,12 +346,11 @@ public:
    //                              EActivationFunction func, const std::vector<int> & vIndices,
    //                              size_t nlocalViews, size_t nlocalViewPixels,
    //                              AReal dropoutProbability, bool applyDropout) {
-   static void ConvLayerForward(std::vector<TMatrixT<AReal>> & , std::vector<TMatrixT<AReal>> &,
-                                const std::vector<TMatrixT<AReal>> &,
-                                const TMatrixT<AReal> & , const TMatrixT<AReal> & ,
-                                EActivationFunction , const std::vector<int> &,
-                                size_t , size_t,
-                                AReal , bool ) {
+   static void ConvLayerForward(std::vector<TMatrixT<AReal>> & /*output*/,
+                                std::vector<TMatrixT<AReal>> & /*derivatives*/,
+                                const std::vector<TMatrixT<AReal>> & /*input*/,
+                                const TMatrixT<AReal> & /*weights*/, const TMatrixT<AReal> & /*biases*/,
+                                const DNN::CNN::TConvParams & /*params*/, EActivationFunction /*activFunc*/) {
       Fatal("ConvLayerForward","This function is not implemented for ref architectures");
    }
 
@@ -376,7 +384,7 @@ public:
                                  size_t , size_t , size_t , size_t ,
                                  size_t ) {
       Fatal("ConvLayerBackward","This function is not implemented for ref architectures");
-            
+
    }
 
 #ifdef HAVE_CNN_REFERENCE
@@ -427,9 +435,15 @@ public:
    /** Perform the complete backward propagation step in a Max Pooling Layer. Based on the
     *  winning idices stored in the index matrix, it just forwards the actiovation
     *  gradients to the previous layer. */
-   static void MaxPoolLayerBackward(std::vector<TMatrixT<AReal>> &activationGradientsBackward,
-                                    const std::vector<TMatrixT<AReal>> &activationGradients,
-                                    const std::vector<TMatrixT<AReal>> &indexMatrix, size_t batchSize, size_t depth,
+   static void MaxPoolLayerBackward(TMatrixT<AReal> &activationGradientsBackward,
+                                    const TMatrixT<AReal> &activationGradients,
+                                    const TMatrixT<AReal> &indexMatrix,
+                                    size_t imgHeight,
+                                    size_t imgWidth,
+                                    size_t fltHeight,
+                                    size_t fltWidth,
+                                    size_t strideRows,
+                                    size_t strideCol,
                                     size_t nLocalViews);
    ///@}
    //____________________________________________________________________________
@@ -451,7 +465,7 @@ public:
    static void Deflatten(std::vector<TMatrixT<AReal>> &A, const TMatrixT<Scalar_t> &B, size_t index, size_t nRows,
                          size_t nCols);
    /** Rearrage data accoring to time fill B x T x D out with T x B x D matrix in*/
-   static void Rearrange(std::vector<TMatrixT<AReal>> &out, const std::vector<TMatrixT<AReal>> &in); 
+   static void Rearrange(std::vector<TMatrixT<AReal>> &out, const std::vector<TMatrixT<AReal>> &in);
 
    ///@}
 
@@ -464,6 +478,36 @@ public:
     * m elements in \p A.
     */
    static void SumColumns(TMatrixT<AReal> &B, const TMatrixT<AReal> &A);
+
+   /** In-place Hadamard (element-wise) product of matrices \p A and \p B
+    *  with the result being written into \p A.
+    */
+   static void Hadamard(TMatrixT<AReal> &A, const TMatrixT<AReal> &B);
+
+   /** Add the constant \p beta to all the elements of matrix \p A and write the
+    * result into \p A.
+    */
+   static void ConstAdd(TMatrixT<AReal> &A, AReal beta);
+
+   /** Multiply the constant \p beta to all the elements of matrix \p A and write the
+    * result into \p A.
+    */
+   static void ConstMult(TMatrixT<AReal> &A, AReal beta);
+
+   /** Reciprocal each element of the matrix \p A and write the result into
+    * \p A
+    */
+   static void ReciprocalElementWise(TMatrixT<AReal> &A);
+
+   /** Square each element of the matrix \p A and write the result into
+    * \p A
+    */
+   static void SquareElementWise(TMatrixT<AReal> &A);
+
+   /** Square root each element of the matrix \p A and write the result into
+    * \p A
+    */
+   static void SqrtElementWise(TMatrixT<AReal> &A);
 
    //____________________________________________________________________________
    //
@@ -529,9 +573,9 @@ void TReference<AReal>::CopyDiffArch(TMatrixT<AReal> &A, const AMatrix_t &B)
    TMatrixT<AReal> tmp = B;
    A = tmp;
 }
-   
+
 template <typename AReal>
-template <typename AMatrix_t> 
+template <typename AMatrix_t>
 void TReference<AReal>::CopyDiffArch(std::vector<TMatrixT<AReal>> &A, const std::vector<AMatrix_t> &B)
 {
    for (size_t i = 0; i < A.size(); ++i) {
@@ -540,7 +584,7 @@ void TReference<AReal>::CopyDiffArch(std::vector<TMatrixT<AReal>> &A, const std:
 }
 
 
-   
+
 } // namespace DNN
 } // namespace TMVA
 

@@ -33,6 +33,17 @@ TEST(RResultPtr, CopyCtor)
    EXPECT_TRUE(hasRun);
 }
 
+TEST(RResultPtr, MoveCtor)
+{
+   ROOT::RDataFrame df(1);
+   ROOT::RDF::RResultPtr<ULong64_t> res(df.Count());
+
+   // also test move-assignment
+   res = df.Count();
+
+   EXPECT_EQ(*res, 1u);
+}
+
 TEST(RResultPtr, ImplConv)
 {
    RResultPtr<Dummy> p1;
@@ -45,11 +56,11 @@ TEST(RResultPtr, ImplConv)
                 return (int)1;
              }).Histo1D<int>("i");
 
-   EXPECT_TRUE(m);
+   EXPECT_TRUE(m != nullptr);
    EXPECT_FALSE(hasRun);
 
    *m;
 
-   EXPECT_TRUE(m);
+   EXPECT_TRUE(m != nullptr);
    EXPECT_TRUE(hasRun);
 }

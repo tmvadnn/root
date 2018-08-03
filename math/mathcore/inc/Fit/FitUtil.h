@@ -381,8 +381,8 @@ namespace FitUtil {
          //Info("EvalChi2","Using vecorized implementation %d",(int) data.Opt().fIntegral);
 
          unsigned int n = data.Size();
+         nPoints = data.Size();  // npoints
 
-         nPoints = 0; // count the effective non-zero points
          // set parameters of the function to cache integral value
 #ifdef USE_PARAMCACHE
          (const_cast<IModelFunctionTempl<T> &>(func)).SetParameters(p);
@@ -430,7 +430,6 @@ namespace FitUtil {
 #else
             fval = func(x, p);
 #endif
-            nPoints++;
 
             T tmp = (y - fval) * invErrorVec;
             T chi2 = tmp * tmp;
@@ -472,7 +471,6 @@ namespace FitUtil {
          } else {
             Error("FitUtil::EvaluateChi2", "Execution policy unknown. Avalaible choices:\n ROOT::Fit::ExecutionPolicy::kSerial (default)\n ROOT::Fit::ExecutionPolicy::kMultithread (requires IMT)\n");
          }
-         nPoints = n;
 
          // Last SIMD vector of elements (if padding needed)
          if (data.Size() % vecSize != 0) 
@@ -488,6 +486,7 @@ namespace FitUtil {
       {
          // evaluate the LogLikelihood
          unsigned int n = data.Size();
+         nPoints = data.Size();  // npoints
 
          //unsigned int nRejected = 0;
          bool normalizeFunc = false;
@@ -610,7 +609,6 @@ namespace FitUtil {
             }
 #endif
 
-            nPoints++;
             return LikelihoodAux<T>(logval, W, W2);
          };
 
@@ -635,7 +633,7 @@ namespace FitUtil {
          T logl_v{};
          T sumW_v{};
          T sumW2_v{};
-         ROOT::Fit::FitUtil::LikelihoodAux<ROOT::Double_v> resArray;
+         ROOT::Fit::FitUtil::LikelihoodAux<T> resArray;
          if (executionPolicy == ROOT::Fit::ExecutionPolicy::kSerial) {
             ROOT::TSequentialExecutor pool;
             resArray = pool.MapReduce(mapFunction, ROOT::TSeq<unsigned>(0, data.Size() / vecSize), redFunction);
@@ -666,15 +664,9 @@ namespace FitUtil {
 
 
          //reduce vector type to double.
-         double logl  = 0.;
-         double sumW  = 0.;
-         double sumW2 = 0;;
-
-         for (unsigned vIt = 0; vIt < vecSize; vIt++) {
-            logl += logl_v[vIt];
-            sumW += sumW_v[vIt];
-            sumW2 += sumW2_v[vIt];
-         }
+         double logl  = vecCore::ReduceAdd(logl_v);
+         double sumW  = vecCore::ReduceAdd(sumW_v);
+         double sumW2 = vecCore::ReduceAdd(sumW2_v);
 
          if (extended) {
             // add Poisson extended term
@@ -734,10 +726,6 @@ namespace FitUtil {
          std::cout << ")  nll = " << -logl << std::endl;
 #endif
          
-         // reset the number of fitting data points
-         //  nPoints = n;
-         // std::cout<<", n: "<<nPoints<<std::endl;
-         nPoints = 0;
          return -logl;
 
       }

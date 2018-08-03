@@ -206,10 +206,38 @@ ColumnNames_t GetTopLevelBranchNames(TTree &t)
    return bNames;
 }
 
+bool IsValidCppVarName(const std::string &var)
+{
+   if (var.empty())
+      return false;
+   const char firstChar = var[0];
+
+   // first character must be either a letter or an underscore
+   auto isALetter = [](char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); };
+   const bool isValidFirstChar = firstChar == '_' || isALetter(firstChar);
+   if (!isValidFirstChar)
+      return false;
+
+   // all characters must be either a letter, an underscore or a number
+   auto isANumber = [](char c) { return c >= '0' && c <= '9'; };
+   auto isValidTok = [&isALetter, &isANumber](char c) { return c == '_' || isALetter(c) || isANumber(c); };
+   for (const char c : var)
+      if (!isValidTok(c))
+         return false;
+      
+   return true;
+}
+
 void CheckCustomColumn(std::string_view definedCol, TTree *treePtr, const ColumnNames_t &customCols,
                        const ColumnNames_t &dataSourceColumns)
 {
    const std::string definedColStr(definedCol);
+
+   if (!IsValidCppVarName(definedColStr)) {
+      const auto msg = "Cannot define column \"" + definedColStr + "\": not a valid C++ variable name.";
+      throw std::runtime_error(msg);
+   }
+
    if (treePtr != nullptr) {
       // check if definedCol is already present in TTree
       const auto branch = treePtr->GetBranch(definedColStr.c_str());
@@ -232,10 +260,10 @@ void CheckCustomColumn(std::string_view definedCol, TTree *treePtr, const Column
    }
 }
 
-void CheckSnapshot(unsigned int nTemplateParams, unsigned int nColumnNames)
+void CheckTypesAndPars(unsigned int nTemplateParams, unsigned int nColumnNames)
 {
    if (nTemplateParams != nColumnNames) {
-      std::string err_msg = "The number of template parameters specified for the snapshot is ";
+      std::string err_msg = "The number of template parameters specified is ";
       err_msg += std::to_string(nTemplateParams);
       err_msg += " while ";
       err_msg += std::to_string(nColumnNames);
@@ -271,17 +299,14 @@ SelectColumns(unsigned int nRequiredNames, const ColumnNames_t &names, const Col
    }
 }
 
-ColumnNames_t FindUnknownColumns(const ColumnNames_t &requiredCols, TTree *tree, const ColumnNames_t &definedCols,
-                                 const ColumnNames_t &dataSourceColumns)
+ColumnNames_t FindUnknownColumns(const ColumnNames_t &requiredCols, const ColumnNames_t &datasetColumns,
+                                 const ColumnNames_t &definedCols, const ColumnNames_t &dataSourceColumns)
 {
    ColumnNames_t unknownColumns;
    for (auto &column : requiredCols) {
-      if (tree != nullptr) {
-         const auto branchNames = GetBranchNames(*tree);
-         const auto isBranch = std::find(branchNames.begin(), branchNames.end(), column) != branchNames.end();
-         if (isBranch)
-            continue;
-      }
+      const auto isBranch = std::find(datasetColumns.begin(), datasetColumns.end(), column) != datasetColumns.end();
+      if (isBranch)
+         continue;
       const auto isCustomColumn = std::find(definedCols.begin(), definedCols.end(), column) != definedCols.end();
       if (isCustomColumn)
          continue;
@@ -297,6 +322,11 @@ ColumnNames_t FindUnknownColumns(const ColumnNames_t &requiredCols, TTree *tree,
 bool IsInternalColumn(std::string_view colName)
 {
    return 0 == colName.find("tdf") && '_' == colName.back();
+}
+
+std::vector<std::string> GetFilterNames(const std::shared_ptr<RLoopManager> &loopManager)
+{
+   return loopManager->GetFiltersNames();
 }
 
 // Replace all the occurrences of a string by another string
@@ -494,7 +524,7 @@ BuildLambdaString(const std::string &expr, const ColumnNames_t &vars, const Colu
    return ss.str();
 }
 
-std::string PrettyPrintAddr(void *addr)
+std::string PrettyPrintAddr(const void *const addr)
 {
    std::stringstream s;
    // Windows-friendly
@@ -571,6 +601,8 @@ void BookDefineJit(std::string_view name, std::string_view expression, RLoopMana
 
    TryToJitExpression(dotlessExpr, varNames, usedColTypes, hasReturnStmt);
 
+   const auto jittedCustomColumn = std::make_shared<RJittedCustomColumn>(lm, name);
+
    const auto definelambda = BuildLambdaString(dotlessExpr, varNames, usedColTypes, hasReturnStmt);
    const auto lambdaName = "eval_" + std::string(name);
    const auto ns = "__tdf" + std::to_string(namespaceID);
@@ -594,18 +626,20 @@ void BookDefineJit(std::string_view name, std::string_view expression, RLoopMana
    if (!usedBranches.empty())
       defineInvocation.seekp(-2, defineInvocation.cur); // remove the last ",
    defineInvocation << "}, \"" << name << "\", reinterpret_cast<ROOT::Detail::RDF::RLoopManager*>("
-                    << PrettyPrintAddr(&lm) << "));";
+                    << PrettyPrintAddr(&lm) << "), *reinterpret_cast<ROOT::Detail::RDF::RJittedCustomColumn*>("
+                    << PrettyPrintAddr(jittedCustomColumn.get()) << "));";
 
    lm.AddCustomColumnName(name);
+   lm.Book(jittedCustomColumn);
    lm.ToJit(defineInvocation.str());
 }
 
 // Jit and call something equivalent to "this->BuildAndBook<BranchTypes...>(params...)"
 // (see comments in the body for actual jitted code)
-std::string JitBuildAndBook(const ColumnNames_t &bl, const std::string &prevNodeTypename, void *prevNode,
-                            const std::type_info &art, const std::type_info &at, const void *rOnHeap, TTree *tree,
-                            const unsigned int nSlots, const ColumnNames_t &customColumns, RDataSource *ds,
-                            const std::shared_ptr<RActionBase *> *const actionPtrPtr, unsigned int namespaceID)
+std::string JitBuildAction(const ColumnNames_t &bl, const std::string &prevNodeTypename, void *prevNode,
+                           const std::type_info &art, const std::type_info &at, void *rOnHeap, TTree *tree,
+                           const unsigned int nSlots, const ColumnNames_t &customColumns, RDataSource *ds,
+                           RJittedAction *jittedAction, unsigned int namespaceID)
 {
    auto nBranches = bl.size();
 
@@ -639,28 +673,25 @@ std::string JitBuildAndBook(const ColumnNames_t &bl, const std::string &prevNode
    }
    const auto actionTypeName = actionTypeClass->GetName();
 
-   // createAction_str will contain the following:
-   // ROOT::Internal::RDF::CallBuildAndBook<actionType, branchType1, branchType2...>(
-   //   *reinterpret_cast<PrevNodeType*>(prevNode), { bl[0], bl[1], ... }, reinterpret_cast<actionResultType*>(rOnHeap),
-   //   reinterpret_cast<shared_ptr<RActionBase*>*>(actionPtrPtr))
+   // Build a call to CallBuildAction with the appropriate argument. When run through the interpreter, this code will
+   // just-in-time create an RAction object and it will assign it to its corresponding RJittedAction.
    std::stringstream createAction_str;
-   createAction_str << "ROOT::Internal::RDF::CallBuildAndBook"
+   createAction_str << "ROOT::Internal::RDF::CallBuildAction"
                     << "<" << actionTypeName;
    for (auto &colType : columnTypeNames)
       createAction_str << ", " << colType;
    // on Windows, to prefix the hexadecimal value of a pointer with '0x',
    // one need to write: std::hex << std::showbase << (size_t)pointer
-   createAction_str << ">(*reinterpret_cast<" << prevNodeTypename << "*>(" << std::hex << std::showbase
-                    << (size_t)prevNode << "), {";
+   createAction_str << ">(*reinterpret_cast<" << prevNodeTypename << "*>(" << PrettyPrintAddr(prevNode) << "), {";
    for (auto i = 0u; i < bl.size(); ++i) {
       if (i != 0u)
          createAction_str << ", ";
       createAction_str << '"' << bl[i] << '"';
    }
    createAction_str << "}, " << std::dec << std::noshowbase << nSlots << ", reinterpret_cast<" << actionResultTypeName
-                    << "*>(" << std::hex << std::showbase << (size_t)rOnHeap << ")"
-                    << ", reinterpret_cast<const std::shared_ptr<ROOT::Internal::RDF::RActionBase*>*>(" << std::hex
-                    << std::showbase << (size_t)actionPtrPtr << "));";
+                    << "*>(" << PrettyPrintAddr(rOnHeap) << ")"
+                    << ", reinterpret_cast<ROOT::Internal::RDF::RJittedAction*>(" << PrettyPrintAddr(jittedAction)
+                    << "));";
    return createAction_str.str();
 }
 
@@ -705,11 +736,12 @@ std::shared_ptr<RJittedFilter> UpcastNode(const std::shared_ptr<RJittedFilter> p
 /// * check that selected column names refer to valid branches, custom columns or datasource columns (throw if not)
 /// Return the list of selected column names.
 ColumnNames_t GetValidatedColumnNames(RLoopManager &lm, const unsigned int nColumns, const ColumnNames_t &columns,
-                                      const ColumnNames_t &validCustomColumns, RDataSource *ds)
+                                      const ColumnNames_t &datasetColumns, const ColumnNames_t &validCustomColumns,
+                                      RDataSource *ds)
 {
    const auto &defaultColumns = lm.GetDefaultColumnNames();
    auto selectedColumns = SelectColumns(nColumns, columns, defaultColumns);
-   const auto unknownColumns = FindUnknownColumns(selectedColumns, lm.GetTree(), validCustomColumns,
+   const auto unknownColumns = FindUnknownColumns(selectedColumns, datasetColumns, validCustomColumns,
                                                   ds ? ds->GetColumnNames() : ColumnNames_t{});
 
    if (!unknownColumns.empty()) {

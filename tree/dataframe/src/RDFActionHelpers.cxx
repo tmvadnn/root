@@ -77,7 +77,7 @@ Hist_t &FillHelper::PartialUpdate(unsigned int slot)
    auto &partialHist = fPartialHists[slot];
    // TODO it is inefficient to re-create the partial histogram everytime the callback is called
    //      ideally we could incrementally fill it with the latest entries in the buffers
-   partialHist.reset(new Hist_t(*fResultHist));
+   partialHist = std::make_unique<Hist_t>(*fResultHist);
    auto weights = fWBuffers[slot].empty() ? nullptr : fWBuffers[slot].data();
    partialHist->FillN(fBuffers[slot].size(), fBuffers[slot].data(), weights);
    return *partialHist;
@@ -162,6 +162,63 @@ template void MeanHelper::Exec(unsigned int, const std::vector<double> &);
 template void MeanHelper::Exec(unsigned int, const std::vector<char> &);
 template void MeanHelper::Exec(unsigned int, const std::vector<int> &);
 template void MeanHelper::Exec(unsigned int, const std::vector<unsigned int> &);
+
+StdDevHelper::StdDevHelper(const std::shared_ptr<double> &meanVPtr, const unsigned int nSlots)
+   : fNSlots(nSlots), fResultStdDev(meanVPtr), fCounts(nSlots, 0), fMeans(nSlots, 0), fDistancesfromMean(nSlots, 0)
+{
+}
+
+void StdDevHelper::Exec(unsigned int slot, double v)
+{
+   // Applies the Welford's algorithm to the stream of values received by the thread
+   auto count = ++fCounts[slot];
+   auto delta = v - fMeans[slot];
+   auto mean = fMeans[slot] + delta / count;
+   auto delta2 = v - mean;
+   auto distance = fDistancesfromMean[slot] + delta * delta2;
+
+   fCounts[slot] = count;
+   fMeans[slot] = mean;
+   fDistancesfromMean[slot] = distance;
+}
+
+void StdDevHelper::Finalize()
+{
+   // Evaluates and merges the partial result of each set of data to get the overall standard deviation.
+   double totalElements = 0;
+   for (auto c : fCounts) {
+      totalElements += c;
+   }
+   if (totalElements == 0 || totalElements == 1) {
+      //Std deviation is not defined for 1 element.
+      *fResultStdDev = 0;
+      return;
+   }
+
+   double overallMean = 0;
+   for (unsigned int i = 0; i < fNSlots; ++i) {
+      overallMean += fCounts[i] * fMeans[i];
+   }
+   overallMean = overallMean / totalElements;
+
+   double variance = 0;
+   for (unsigned int i = 0; i < fNSlots; ++i) {
+      if (fCounts[i] == 0) {
+         continue;
+      }
+      auto setVariance = fDistancesfromMean[i] / (fCounts[i]);
+      variance += (fCounts[i]) * (setVariance + std::pow((fMeans[i] - overallMean), 2));
+   }
+
+   variance = variance / (totalElements - 1);
+   *fResultStdDev = std::sqrt(variance);
+}
+
+template void StdDevHelper::Exec(unsigned int, const std::vector<float> &);
+template void StdDevHelper::Exec(unsigned int, const std::vector<double> &);
+template void StdDevHelper::Exec(unsigned int, const std::vector<char> &);
+template void StdDevHelper::Exec(unsigned int, const std::vector<int> &);
+template void StdDevHelper::Exec(unsigned int, const std::vector<unsigned int> &);
 
 } // end NS RDF
 } // end NS Internal

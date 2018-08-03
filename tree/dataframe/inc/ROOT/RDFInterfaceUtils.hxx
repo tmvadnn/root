@@ -14,7 +14,7 @@
 #include <ROOT/RIntegerSequence.hxx>
 #include <ROOT/RMakeUnique.hxx>
 #include <ROOT/RStringView.hxx>
-#include <ROOT/RDFActionHelpers.hxx> // for BuildAndBook
+#include <ROOT/RDFActionHelpers.hxx> // for BuildAction
 #include <ROOT/RDFNodes.hxx>
 #include <ROOT/RDFUtils.hxx>
 #include <ROOT/TypeTraits.hxx>
@@ -65,23 +65,23 @@ public:
    RIgnoreErrorLevelRAII() { gErrorIgnoreLevel = fCurIgnoreErrorLevel; }
 };
 
-/****** BuildAndBook overloads *******/
-// BuildAndBook builds a RAction with the right operation and books it with the RLoopManager
+/****** BuildAction overloads *******/
 
 // clang-format off
 /// This namespace defines types to be used for tag dispatching in RInterface.
-namespace ActionTypes {
-// they cannot just be forward declared: we need concrete types for jitting and to use them with TClass::GetClass
-struct Histo1D {};
-struct Histo2D {};
-struct Histo3D {};
-struct Profile1D {};
-struct Profile2D {};
-struct Min {};
-struct Max {};
-struct Sum {};
-struct Mean {};
-struct Fill {};
+namespace ActionTags {
+struct Histo1D{};
+struct Histo2D{};
+struct Histo3D{};
+struct Graph{};
+struct Profile1D{};
+struct Profile2D{};
+struct Min{};
+struct Max{};
+struct Sum{};
+struct Mean{};
+struct Fill{};
+struct StdDev{};
 }
 // clang-format on
 
@@ -115,93 +115,93 @@ struct HistoUtils<T, true> {
 };
 
 // Generic filling (covers Histo2D, Histo3D, Profile1D and Profile2D actions, with and without weights)
-template <typename... BranchTypes, typename ActionType, typename ActionResultType, typename PrevNodeType>
-RActionBase *BuildAndBook(const ColumnNames_t &bl, const std::shared_ptr<ActionResultType> &h,
-                          const unsigned int nSlots, RLoopManager &loopManager, PrevNodeType &prevNode, ActionType *)
+template <typename... BranchTypes, typename ActionTag, typename ActionResultType, typename PrevNodeType>
+std::unique_ptr<RActionBase> BuildAction(const ColumnNames_t &bl, const std::shared_ptr<ActionResultType> &h,
+                                         const unsigned int nSlots, PrevNodeType &prevNode, ActionTag)
 {
    using Helper_t = FillTOHelper<ActionResultType>;
    using Action_t = RAction<Helper_t, PrevNodeType, TTraits::TypeList<BranchTypes...>>;
-   auto action = std::make_shared<Action_t>(Helper_t(h, nSlots), bl, prevNode);
-   loopManager.Book(action);
-   return action.get();
+   return std::make_unique<Action_t>(Helper_t(h, nSlots), bl, prevNode);
 }
 
 // Histo1D filling (must handle the special case of distinguishing FillTOHelper and FillHelper
 template <typename... BranchTypes, typename PrevNodeType>
-RActionBase *BuildAndBook(const ColumnNames_t &bl, const std::shared_ptr<::TH1D> &h, const unsigned int nSlots,
-                          RLoopManager &loopManager, PrevNodeType &prevNode, ActionTypes::Histo1D *)
+std::unique_ptr<RActionBase> BuildAction(const ColumnNames_t &bl, const std::shared_ptr<::TH1D> &h,
+                                         const unsigned int nSlots, PrevNodeType &prevNode, ActionTags::Histo1D)
 {
    auto hasAxisLimits = HistoUtils<::TH1D>::HasAxisLimits(*h);
 
-   RActionBase *actionBase;
    if (hasAxisLimits) {
       using Helper_t = FillTOHelper<::TH1D>;
       using Action_t = RAction<Helper_t, PrevNodeType, TTraits::TypeList<BranchTypes...>>;
-      auto action = std::make_shared<Action_t>(Helper_t(h, nSlots), bl, prevNode);
-      loopManager.Book(action);
-      actionBase = action.get();
+      return std::make_unique<Action_t>(Helper_t(h, nSlots), bl, prevNode);
    } else {
       using Helper_t = FillHelper;
       using Action_t = RAction<Helper_t, PrevNodeType, TTraits::TypeList<BranchTypes...>>;
-      auto action = std::make_shared<Action_t>(Helper_t(h, nSlots), bl, prevNode);
-      loopManager.Book(action);
-      actionBase = action.get();
+      return std::make_unique<Action_t>(Helper_t(h, nSlots), bl, prevNode);
    }
+}
 
-   return actionBase;
+template <typename... BranchTypes, typename PrevNodeType>
+std::unique_ptr<RActionBase> BuildAction(const ColumnNames_t &bl, const std::shared_ptr<TGraph> &g,
+                                         const unsigned int nSlots, PrevNodeType &prevNode, ActionTags::Graph)
+{
+   using Helper_t = FillTGraphHelper;
+   using Action_t = RAction<Helper_t, PrevNodeType, TTraits::TypeList<BranchTypes...>>;
+   return std::make_unique<Action_t>(Helper_t(g, nSlots), bl, prevNode);
 }
 
 // Min action
 template <typename BranchType, typename PrevNodeType, typename ActionResultType>
-RActionBase *
-BuildAndBook(const ColumnNames_t &bl, const std::shared_ptr<ActionResultType> &minV, const unsigned int nSlots,
-             RLoopManager &loopManager, PrevNodeType &prevNode, ActionTypes::Min *)
+std::unique_ptr<RActionBase> BuildAction(const ColumnNames_t &bl, const std::shared_ptr<ActionResultType> &minV,
+                                         const unsigned int nSlots, PrevNodeType &prevNode, ActionTags::Min)
 {
    using Helper_t = MinHelper<ActionResultType>;
    using Action_t = RAction<Helper_t, PrevNodeType, TTraits::TypeList<BranchType>>;
-   auto action = std::make_shared<Action_t>(Helper_t(minV, nSlots), bl, prevNode);
-   loopManager.Book(action);
-   return action.get();
+   return std::make_unique<Action_t>(Helper_t(minV, nSlots), bl, prevNode);
 }
 
 // Max action
 template <typename BranchType, typename PrevNodeType, typename ActionResultType>
-RActionBase *
-BuildAndBook(const ColumnNames_t &bl, const std::shared_ptr<ActionResultType> &maxV, const unsigned int nSlots,
-             RLoopManager &loopManager, PrevNodeType &prevNode, ActionTypes::Max *)
+std::unique_ptr<RActionBase> BuildAction(const ColumnNames_t &bl, const std::shared_ptr<ActionResultType> &maxV,
+                                         const unsigned int nSlots, PrevNodeType &prevNode, ActionTags::Max)
 {
    using Helper_t = MaxHelper<ActionResultType>;
    using Action_t = RAction<Helper_t, PrevNodeType, TTraits::TypeList<BranchType>>;
-   auto action = std::make_shared<Action_t>(Helper_t(maxV, nSlots), bl, prevNode);
-   loopManager.Book(action);
-   return action.get();
+   return std::make_unique<Action_t>(Helper_t(maxV, nSlots), bl, prevNode);
 }
 
 // Sum action
 template <typename BranchType, typename PrevNodeType, typename ActionResultType>
-RActionBase *
-BuildAndBook(const ColumnNames_t &bl, const std::shared_ptr<ActionResultType> &sumV, const unsigned int nSlots,
-             RLoopManager &loopManager, PrevNodeType &prevNode, ActionTypes::Sum *)
+std::unique_ptr<RActionBase> BuildAction(const ColumnNames_t &bl, const std::shared_ptr<ActionResultType> &sumV,
+                                         const unsigned int nSlots, PrevNodeType &prevNode, ActionTags::Sum)
 {
    using Helper_t = SumHelper<ActionResultType>;
    using Action_t = RAction<Helper_t, PrevNodeType, TTraits::TypeList<BranchType>>;
-   auto action = std::make_shared<Action_t>(Helper_t(sumV, nSlots), bl, prevNode);
-   loopManager.Book(action);
-   return action.get();
+   return std::make_unique<Action_t>(Helper_t(sumV, nSlots), bl, prevNode);
 }
 
 // Mean action
 template <typename BranchType, typename PrevNodeType>
-RActionBase *BuildAndBook(const ColumnNames_t &bl, const std::shared_ptr<double> &meanV, const unsigned int nSlots,
-                          RLoopManager &loopManager, PrevNodeType &prevNode, ActionTypes::Mean *)
+std::unique_ptr<RActionBase> BuildAction(const ColumnNames_t &bl, const std::shared_ptr<double> &meanV,
+                                         const unsigned int nSlots, PrevNodeType &prevNode, ActionTags::Mean)
 {
    using Helper_t = MeanHelper;
    using Action_t = RAction<Helper_t, PrevNodeType, TTraits::TypeList<BranchType>>;
-   auto action = std::make_shared<Action_t>(Helper_t(meanV, nSlots), bl, prevNode);
-   loopManager.Book(action);
-   return action.get();
+   return std::make_unique<Action_t>(Helper_t(meanV, nSlots), bl, prevNode);
 }
-/****** end BuildAndBook ******/
+
+// Standard Deviation action
+template <typename BranchType, typename PrevNodeType>
+std::unique_ptr<RActionBase> BuildAction(const ColumnNames_t &bl, const std::shared_ptr<double> &stdDeviationV,
+                                         const unsigned int nSlots, PrevNodeType &prevNode, ActionTags::StdDev)
+{
+   using Helper_t = StdDevHelper;
+   using Action_t = RAction<Helper_t, PrevNodeType, TTraits::TypeList<BranchType>>;
+   return std::make_unique<Action_t>(Helper_t(stdDeviationV, nSlots), bl, prevNode);
+}
+
+/****** end BuildAction ******/
 
 template <typename Filter>
 void CheckFilter(Filter &)
@@ -213,7 +213,7 @@ void CheckFilter(Filter &)
 void CheckCustomColumn(std::string_view definedCol, TTree *treePtr, const ColumnNames_t &customCols,
                        const ColumnNames_t &dataSourceColumns);
 
-using TmpBranchBasePtr_t = std::shared_ptr<RCustomColumnBase>;
+std::string PrettyPrintAddr(const void *const addr);
 
 void BookFilterJit(RJittedFilter *jittedFilter, void *prevNode, std::string_view prevNodeTypeName,
                    std::string_view name, std::string_view expression,
@@ -222,10 +222,10 @@ void BookFilterJit(RJittedFilter *jittedFilter, void *prevNode, std::string_view
 
 void BookDefineJit(std::string_view name, std::string_view expression, RLoopManager &lm, RDataSource *ds);
 
-std::string JitBuildAndBook(const ColumnNames_t &bl, const std::string &prevNodeTypename, void *prevNode,
-                            const std::type_info &art, const std::type_info &at, const void *r, TTree *tree,
-                            const unsigned int nSlots, const ColumnNames_t &customColumns, RDataSource *ds,
-                            const std::shared_ptr<RActionBase *> *const actionPtrPtr, unsigned int namespaceID);
+std::string JitBuildAction(const ColumnNames_t &bl, const std::string &prevNodeTypename, void *prevNode,
+                           const std::type_info &art, const std::type_info &at, void *r, TTree *tree,
+                           const unsigned int nSlots, const ColumnNames_t &customColumns, RDataSource *ds,
+                           RJittedAction *jittedAction, unsigned int namespaceID);
 
 // allocate a shared_ptr on the heap, return a reference to it. the user is responsible of deleting the shared_ptr*.
 // this function is meant to only be used by RInterface's action methods, and should be deprecated as soon as we find
@@ -250,7 +250,8 @@ std::shared_ptr<RLoopManager> UpcastNode(const std::shared_ptr<RLoopManager> ptr
 std::shared_ptr<RJittedFilter> UpcastNode(const std::shared_ptr<RJittedFilter> ptr);
 
 ColumnNames_t GetValidatedColumnNames(RLoopManager &lm, const unsigned int nColumns, const ColumnNames_t &columns,
-                                      const ColumnNames_t &validCustomColumns, RDataSource *ds);
+                                      const ColumnNames_t &datasetColumns, const ColumnNames_t &validCustomColumns,
+                                      RDataSource *ds);
 
 std::vector<bool> FindUndefinedDSColumns(const ColumnNames_t &requestedCols, const ColumnNames_t &definedDSCols);
 
@@ -260,7 +261,7 @@ void DefineDSColumnHelper(std::string_view name, RLoopManager &lm, RDataSource &
 {
    auto readers = ds.GetColumnReaders<T>(name);
    auto getValue = [readers](unsigned int slot) { return *readers[slot]; };
-   using NewCol_t = RCustomColumn<decltype(getValue), TCCHelperTypes::TSlot>;
+   using NewCol_t = RCustomColumn<decltype(getValue), CustomColExtraArgs::Slot>;
    lm.Book(std::make_shared<NewCol_t>(name, std::move(getValue), ColumnNames_t{}, &lm, /*isDSColumn=*/true));
    lm.AddCustomColumnName(name);
    lm.AddDataSourceColumn(name);
@@ -302,9 +303,10 @@ void JitFilterHelper(F &&f, const ColumnNames_t &cols, std::string_view name, RJ
 }
 
 template <typename F>
-void JitDefineHelper(F &&f, const ColumnNames_t &cols, std::string_view name, RLoopManager *lm)
+void JitDefineHelper(F &&f, const ColumnNames_t &cols, std::string_view name, RLoopManager *lm,
+                     RJittedCustomColumn &jittedCustomCol)
 {
-   using NewCol_t = RCustomColumn<F, TCCHelperTypes::TNothing>;
+   using NewCol_t = RCustomColumn<F, CustomColExtraArgs::None>;
    using ColTypes_t = typename TTraits::CallableTraits<F>::arg_types;
    constexpr auto nColumns = ColTypes_t::list_size;
 
@@ -312,14 +314,13 @@ void JitDefineHelper(F &&f, const ColumnNames_t &cols, std::string_view name, RL
    if (ds)
       RDFInternal::DefineDataSourceColumns(cols, *lm, *ds, std::make_index_sequence<nColumns>(), ColTypes_t());
 
-   lm->Book(std::make_shared<NewCol_t>(name, std::move(f), cols, lm));
+   jittedCustomCol.SetCustomColumn(std::make_unique<NewCol_t>(name, std::move(f), cols, lm));
 }
 
 /// Convenience function invoked by jitted code to build action nodes at runtime
-template <typename ActionType, typename... BranchTypes, typename PrevNodeType, typename ActionResultType>
-void CallBuildAndBook(PrevNodeType &prevNode, const ColumnNames_t &bl, const unsigned int nSlots,
-                      const std::shared_ptr<ActionResultType> *rOnHeap,
-                      const std::shared_ptr<RActionBase *> *actionPtrPtrOnHeap)
+template <typename ActionTag, typename... BranchTypes, typename PrevNodeType, typename ActionResultType>
+void CallBuildAction(PrevNodeType &prevNode, const ColumnNames_t &bl, const unsigned int nSlots,
+                     const std::shared_ptr<ActionResultType> *rOnHeap, RJittedAction *jittedAction)
 {
    // if we are here it means we are jitting, if we are jitting the loop manager must be alive
    auto &loopManager = *prevNode.GetLoopManagerUnchecked();
@@ -328,11 +329,9 @@ void CallBuildAndBook(PrevNodeType &prevNode, const ColumnNames_t &bl, const uns
    auto ds = loopManager.GetDataSource();
    if (ds)
       DefineDataSourceColumns(bl, loopManager, *ds, std::make_index_sequence<nColumns>(), ColTypes_t());
-   RActionBase *actionPtr =
-      BuildAndBook<BranchTypes...>(bl, *rOnHeap, nSlots, loopManager, prevNode, (ActionType *)nullptr);
-   **actionPtrPtrOnHeap = actionPtr;
+   auto actionPtr = BuildAction<BranchTypes...>(bl, *rOnHeap, nSlots, prevNode, ActionTag{});
+   jittedAction->SetAction(std::move(actionPtr));
    delete rOnHeap;
-   delete actionPtrPtrOnHeap;
 }
 
 /// The contained `type` alias is `double` if `T == TInferType`, `U` if `T == std::container<U>`, `T` otherwise.
@@ -412,16 +411,28 @@ void CheckAggregate(T)
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Check as many template parameters were passed as the number of column names, throw if this is not the case.
-void CheckSnapshot(unsigned int nTemplateParams, unsigned int nColumnNames);
+void CheckTypesAndPars(unsigned int nTemplateParams, unsigned int nColumnNames);
 
 /// Return local BranchNames or default BranchNames according to which one should be used
 const ColumnNames_t SelectColumns(unsigned int nArgs, const ColumnNames_t &bl, const ColumnNames_t &defBl);
 
 /// Check whether column names refer to a valid branch of a TTree or have been `Define`d. Return invalid column names.
-ColumnNames_t FindUnknownColumns(const ColumnNames_t &requiredCols, TTree *tree, const ColumnNames_t &definedCols,
-                                 const ColumnNames_t &dataSourceColumns);
+ColumnNames_t FindUnknownColumns(const ColumnNames_t &requiredCols, const ColumnNames_t &datasetColumns,
+                                 const ColumnNames_t &definedCols, const ColumnNames_t &dataSourceColumns);
 
 bool IsInternalColumn(std::string_view colName);
+
+/// Returns the list of Filters defined in the whole graph
+std::vector<std::string> GetFilterNames(const std::shared_ptr<RLoopManager> &loopManager);
+
+/// Returns the list of Filters defined in the branch
+template <typename NodeType>
+std::vector<std::string> GetFilterNames(const std::shared_ptr<NodeType> &node)
+{
+   std::vector<std::string> filterNames;
+   node->AddFilterName(filterNames);
+   return filterNames;
+}
 
 // Check if a condition is true for all types
 template <bool...>

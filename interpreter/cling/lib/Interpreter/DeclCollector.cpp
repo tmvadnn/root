@@ -102,13 +102,14 @@ namespace cling {
     }
   };
 
-  void DeclCollector::Setup(IncrementalParser* IncrParser, ASTConsumer* Consumer,
+  void DeclCollector::Setup(IncrementalParser* IncrParser,
+                            std::unique_ptr<ASTConsumer> Consumer,
                             clang::Preprocessor& PP) {
     m_IncrParser = IncrParser;
-    m_Consumer = Consumer;
+    m_Consumer = std::move(Consumer);
     PP.addPPCallbacks(std::unique_ptr<PPCallbacks>(new PPAdapter(this)));
   }
-  
+
   bool DeclCollector::comesFromASTReader(DeclGroupRef DGR) const {
     assert(!DGR.isNull() && "DeclGroupRef is Null!");
     assertHasTransaction(m_CurTransaction);
@@ -319,19 +320,6 @@ namespace cling {
         && (!comesFromASTReader(DeclGroupRef(D))
             || !shouldIgnore(D)))
     m_Consumer->HandleCXXStaticMemberVarInstantiation(D);
-  }
-
-  void DeclCollector::DeclRead(clang::serialization::DeclID, const clang::Decl *D) {
-    assertHasTransaction(m_CurTransaction);
-
-    assert(D && "Decl doesn't exist!");
-    if (!D->hasOwningModule()) return;
-
-    clang::Module *M = D->getOwningModule();
-    M = M->getTopLevelModule();
-
-    // Add interesting module to Transaction's m_cxxmodules; Corresponding library will be loaded.
-    m_CurTransaction->addClangModule(M);
   }
 
 } // namespace cling

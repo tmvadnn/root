@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
-#include "ROOT/THist.hxx"
-#include "ROOT/TCanvas.hxx"
-#include "ROOT/TColor.hxx"
+#include "ROOT/RHist.hxx"
+#include "ROOT/RCanvas.hxx"
+#include "ROOT/RColor.hxx"
 #include "ROOT/TFile.hxx"
 
 #include <TApplication.h>
@@ -15,10 +15,10 @@ TApplication theApp("iotest", &myArgc, const_cast<char**>(myArgv));
 // Test drawing of histograms.
 TEST(IOTest, OneD)
 {
-TClass::GetClass("ROOT::Experimental::Detail::THistImpl<ROOT::Experimental::Detail::THistData<1,double,ROOT::Experimental::Detail::THistDataDefaultStorage,ROOT::Experimental::THistStatContent,ROOT::Experimental::THistStatUncertainty>,ROOT::Experimental::TAxisEquidistant>")->GetClassInfo();
+   TClass::GetClass("ROOT::Experimental::Detail::RHistImpl<ROOT::Experimental::Detail::RHistData<1,double,std::vector<double>,ROOT::Experimental::RHistStatContent,ROOT::Experimental::RHistStatUncertainty>,ROOT::Experimental::RAxisEquidistant>")->GetClassInfo();
 
-   TAxisConfig xaxis{10, 0., 1.};
-   TH1D h(xaxis);
+   RAxisConfig xaxis{10, 0., 1.};
+   RH1D h(xaxis);
    auto file = TFile::Recreate("IOTestOneD.root");
    file->Write("h", h);
 }
@@ -26,11 +26,11 @@ TClass::GetClass("ROOT::Experimental::Detail::THistImpl<ROOT::Experimental::Deta
 // Drawing options:
 TEST(IOTest, OneDOpts)
 {
-   TAxisConfig xaxis{10, 0., 1.};
-   auto h = std::make_unique<TH1D>(xaxis);
-   TCanvas canv;
+   RAxisConfig xaxis{10, 0., 1.};
+   auto h = std::make_unique<RH1D>(xaxis);
+   RCanvas canv;
    auto optsPtr = canv.Draw(std::move(h));
-   optsPtr->SetLineColor(TColor::kRed);
+   optsPtr->SetLineColor(RColor::kRed);
 
    auto file = TFile::Recreate("IOTestOneDOpts.root");
    file->Write("canv", canv);

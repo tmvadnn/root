@@ -377,7 +377,7 @@ void TMVA::MethodBDT::DeclareOptions()
    AddPreDefVal(TString("Exponential"));
 
    DeclareOptionRef(fBaggedBoost=kFALSE, "UseBaggedBoost","Use only a random subsample of all events for growing the trees in each boost iteration.");
-   DeclareOptionRef(fShrinkage=1.0, "Shrinkage", "Learning rate for GradBoost algorithm");
+   DeclareOptionRef(fShrinkage = 1.0, "Shrinkage", "Learning rate for BoostType=Grad algorithm");
    DeclareOptionRef(fAdaBoostBeta=.5, "AdaBoostBeta", "Learning rate  for AdaBoost algorithm");
    DeclareOptionRef(fRandomisedTrees,"UseRandomisedTrees","Determine at each node splitting the cut variable only as the best out of a random subset of variables (like in RandomForests)");
    DeclareOptionRef(fUseNvars,"UseNvars","Size of the subset of variables used with RandomisedTree option");
@@ -547,9 +547,10 @@ void TMVA::MethodBDT::ProcessOptions()
    if (fBoostType=="Grad") {
       fPruneMethod = DecisionTree::kNoPruning;
       if (fNegWeightTreatment=="InverseBoostNegWeights"){
-   Log() << kINFO << "the option *InverseBoostNegWeights* does not exist for BoostType=Grad --> change" << Endl;
-         Log() << kINFO << "to new default for GradBoost *Pray*" << Endl;
-   Log() << kDEBUG << "i.e. simply keep them as if which should work fine for Grad Boost" << Endl;
+         Log() << kINFO << "the option NegWeightTreatment=InverseBoostNegWeights does"
+               << " not exist for BoostType=Grad" << Endl;
+         Log() << kINFO << "--> change to new default NegWeightTreatment=Pray" << Endl;
+         Log() << kDEBUG << "i.e. simply keep them as if which should work fine for Grad Boost" << Endl;
          fNegWeightTreatment="Pray";
          fNoNegWeightsInTraining=kFALSE;
       }
@@ -1297,8 +1298,7 @@ void TMVA::MethodBDT::Train()
       if(DoMulticlass()){
          if (fBoostType!="Grad"){
             Log() << kFATAL << "Multiclass is currently only supported by gradient boost. "
-                  << "Please change boost option accordingly (GradBoost)."
-                  << Endl;
+                  << "Please change boost option accordingly (BoostType=Grad)." << Endl;
          }
 
          UInt_t nClasses = DataInfo().GetNClasses();
@@ -1485,41 +1485,43 @@ void TMVA::MethodBDT::UpdateTargets(std::vector<const TMVA::Event*>& eventSample
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Calculate current residuals for all events and update targets for next iteration.
-
+/// \brief Calculate residuals for all events and update targets for next iter.
+///
+/// \param[in] eventSample The collection of events currently under training.
+/// \param[in] first Should be true when called before the first boosting
+///                  iteration has been run
+///
 void TMVA::MethodBDT::UpdateTargetsRegression(std::vector<const TMVA::Event*>& eventSample, Bool_t first)
 {
-   // Need to update the predictions for the next tree
-   // #### Do this in parallel by partitioning the data into nPartitions
-   #ifdef R__USE_IMT // multithreaded version if ROOT was compiled with multithreading 
-   if(!first){
-     
+   if (!first) {
+#ifdef R__USE_IMT
       UInt_t nPartitions = fNumPoolThreads;
       auto seeds = ROOT::TSeqU(nPartitions);
 
       // need a lambda function to pass to TThreadExecutor::MapReduce
-      auto f = [this, &eventSample, &nPartitions](UInt_t partition = 0) -> Int_t{
+      auto f = [this, &nPartitions](UInt_t partition = 0) -> Int_t {
+         Int_t start = 1.0 * partition / nPartitions * this->fEventSample.size();
+         Int_t end = (partition + 1.0) / nPartitions * this->fEventSample.size();
 
-         Int_t start = 1.0*partition/nPartitions*eventSample.size();
-         Int_t end   = (partition+1.0)/nPartitions*eventSample.size();
-
-         for(Int_t i=start; i<end; ++i)
-            fLossFunctionEventInfo[eventSample[i]].predictedValue += fForest.back()->CheckEvent(eventSample[i],kFALSE);
+         for (Int_t i = start; i < end; ++i) {
+            const TMVA::Event *e = fEventSample[i];
+            LossFunctionEventInfo & lossInfo = fLossFunctionEventInfo.at(e);
+            lossInfo.predictedValue += fForest.back()->CheckEvent(e, kFALSE);
+         }
 
          return 0;
       };
 
       TMVA::Config::Instance().GetThreadExecutor().Map(f, seeds);
+#else
+      for (const TMVA::Event *e : fEventSample) {
+         LossFunctionEventInfo & lossInfo = fLossFunctionEventInfo.at(e);
+         lossInfo.predictedValue += fForest.back()->CheckEvent(e, kFALSE);
+      }
+#endif
    }
-   #else // ROOT was not compiled with multithreading, use standard version
-   if(!first){
-      for (std::vector<const TMVA::Event*>::const_iterator e=fEventSample.begin(); e!=fEventSample.end();e++) {
-         fLossFunctionEventInfo[*e].predictedValue += fForest.back()->CheckEvent(*e,kFALSE); 
-      }    
-   }
-   #endif
-   
-   // #### Parallelized at the loss function level
+
+   // NOTE: Set targets are also parallelised internally
    fRegressionLossFunctionBDTG->SetTargets(eventSample, fLossFunctionEventInfo);
    
 }

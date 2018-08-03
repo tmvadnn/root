@@ -41,6 +41,7 @@
 #include "TLeafObject.h"
 #include "TStreamerElement.h"
 #include "TStreamerInfo.h"
+#include "TInterpreterValue.h"
 
 #include "ROOT/RVec.hxx"
 
@@ -48,6 +49,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <sstream>
 
 #include <stdio.h>
 #include <string.h>     // only needed for Cling TMinuit workaround
@@ -975,9 +977,7 @@ namespace {
       vi->vi_len = vi->vi_pos = 0;
       vi->vi_len = PySequence_Size( v );
 
-#ifndef R__WIN32 // prevent error LNK2001: unresolved external symbol __PyGC_generation0
-      _PyObject_GC_TRACK( vi );
-#endif
+      PyObject_GC_Track( vi );
       return (PyObject*)vi;
    }
 
@@ -2262,6 +2262,29 @@ namespace {
       return BindCppObject( addr, (Cppyy::TCppType_t)Cppyy::GetScope( "TObject" ), kFALSE );
    }
 
+   //- Pretty printing with cling::PrintValue
+   PyObject *ClingPrintValue(ObjectProxy *self)
+   {
+      PyObject *cppname = PyObject_GetAttrString((PyObject *)self, "__cppname__");
+      if (!PyROOT_PyUnicode_Check(cppname))
+         return 0;
+      std::string className = PyROOT_PyUnicode_AsString(cppname);
+      Py_XDECREF(cppname);
+
+      void *myObj = self->GetObject();
+      std::stringstream ss;
+      ss << myObj;
+      std::string code = "*((" + className + "*)" + ss.str() + ")";
+
+      auto Value = gInterpreter->CreateTemporary();
+      std::string pprint = "";
+      if (gInterpreter->Evaluate(code.c_str(), *Value) == 1 /*success*/)
+         pprint = Value->ToTypeAndValueString().second;
+      delete Value;
+      pprint.erase(std::remove(pprint.begin(), pprint.end(), '\n'), pprint.end());
+      return PyROOT_PyUnicode_FromString(pprint.c_str());
+   }
+
    //- Adding array interface to classes ---------------
    void AddArrayInterface(PyObject *pyclass, PyCFunction func)
    {
@@ -2331,9 +2354,12 @@ Bool_t PyROOT::Pythonize( PyObject* pyclass, const std::string& name )
    if ( pyclass == 0 )
       return kFALSE;
 
-//- method name based pythonization --------------------------------------------
+   // add pretty printing
+   Utility::AddToClass(pyclass, "__str__", (PyCFunction)ClingPrintValue);
 
-// for smart pointer style classes (note fall-through)
+   //- method name based pythonization --------------------------------------------
+
+   // for smart pointer style classes (note fall-through)
    if ( HasAttrDirect( pyclass, PyStrings::gDeref ) ) {
       Utility::AddToClass( pyclass, "__getattr__", (PyCFunction) DeRefGetAttr, METH_O );
    } else if ( HasAttrDirect( pyclass, PyStrings::gFollow ) ) {

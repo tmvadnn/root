@@ -96,12 +96,13 @@
 
    "use strict";
 
-   JSROOT.version = "dev 26/04/2018";
+   JSROOT.version = "5.5.1 16/07/2018";
 
    JSROOT.source_dir = "";
    JSROOT.source_min = false;
    JSROOT.source_fullpath = ""; // full name of source script
    JSROOT.bower_dir = null; // when specified, use standard libs from bower location
+   JSROOT.nocache = false;
    JSROOT.sources = ['core']; // indicates which major sources were loaded
 
    JSROOT.id_counter = 0;
@@ -154,6 +155,7 @@
          DragAndDrop : true,  // enables drag and drop functionality
          ToolBar : 'popup',  // show additional tool buttons on the canvas, false - disabled, true - enabled, 'popup' - only toggle button
          ToolBarSide : 'left', // 'left' left-bottom corner on canvas, 'right' - right-bottom corner on canvas, opposite on sub-pads
+         ToolBarVert : false,  // display tool bar vertical (default false)
          CanEnlarge : true,  // if drawing inside particular div can be enlarged on full window
          CanAdjustFrame : false,  // if frame position can be adjusted to let show axis or colz labels
          ApproxTextSize : false,  // calculation of text size consumes time and can be skipped to improve performance (but with side effects on text adjustments)
@@ -182,8 +184,6 @@
          fOptLogz : 0,
          fOptDate : 0,
          fOptFile : 0,
-         fOptFit  : 0,
-         fOptStat : 1,
          fOptTitle : 1,
          fPadBottomMargin : 0.1,
          fPadTopMargin : 0.1,
@@ -851,6 +851,8 @@
          if (typeof user_call_back == 'function') user_call_back.call(xhr, res);
       }
 
+      if (!kind) kind = "buf";
+
       var pthis = this, method = "GET", async = true, p = kind.indexOf(";sync");
       if (p>0) { kind.substr(0,p); async = false; }
       if (kind === "head") method = "HEAD"; else
@@ -964,16 +966,14 @@
          isrootjs = true;
          filename = filename.slice(3);
          if (JSROOT.use_full_libs) filename = "libs/" + filename.slice(8, filename.length-7) + ".js";
-      } else
-      if (filename.indexOf("$$$")===0) {
+      } else if (filename.indexOf("$$$")===0) {
          isrootjs = true;
          filename = filename.slice(3);
          if ((filename.indexOf("style/")==0) && JSROOT.source_min &&
              (filename.lastIndexOf('.css')==filename.length-4) &&
              (filename.indexOf('.min.css')<0))
             filename = filename.slice(0, filename.length-4) + '.min.css';
-      } else
-      if (filename.indexOf("###")===0) {
+      } else if (filename.indexOf("###")===0) {
          isbower = true;
          filename = filename.slice(3);
       }
@@ -1018,6 +1018,9 @@
          document.getElementById(debugout).innerHTML = "loading " + filename + " ...";
       else
          JSROOT.progress("loading " + filename + " ...");
+
+      if (JSROOT.nocache && isrootjs && (filename.indexOf("?")<0))
+         filename += "?stamp=" + JSROOT.nocache;
 
       if (isstyle) {
          element = document.createElement("link");
@@ -1435,13 +1438,13 @@
                                  fBits2: 0, fTimeDisplay: false, fTimeFormat: "", fLabels: null });
             break;
          case 'TAttLine':
-            JSROOT.extend(obj, { fLineColor: 1, fLineStyle : 1, fLineWidth : 1 });
+            JSROOT.extend(obj, { fLineColor: 1, fLineStyle: 1, fLineWidth: 1 });
             break;
          case 'TAttFill':
-            JSROOT.extend(obj, { fFillColor: 0, fFillStyle : 0 } );
+            JSROOT.extend(obj, { fFillColor: 0, fFillStyle: 0 } );
             break;
          case 'TAttMarker':
-            JSROOT.extend(obj, { fMarkerColor: 1, fMarkerStyle : 1, fMarkerSize : 1. });
+            JSROOT.extend(obj, { fMarkerColor: 1, fMarkerStyle: 1, fMarkerSize: 1. });
             break;
          case 'TLine':
             JSROOT.Create("TObject", obj);
@@ -2216,6 +2219,8 @@
       }
 
       var src = JSROOT.source_fullpath;
+
+      if (JSROOT.GetUrlOption('nocache', src)!=null) JSROOT.nocache = (new Date).getTime(); // use timestamp to overcome cache limitation
 
       if (JSROOT.GetUrlOption('gui', src) !== null)
          return window_on_load( function() { JSROOT.BuildSimpleGUI(); } );

@@ -321,18 +321,15 @@ void fillMatrix(AMatrix &X, AReal x)
 /*! Fill matrix with random, Gaussian-distributed values. */
 //______________________________________________________________________________
 template <typename AMatrix>
-void randomMatrix(AMatrix &X, double mean = 0.0, double sigma = 1.0)
+void randomMatrix(AMatrix &X, double mean = 0.0, double sigma = 1.0,
+                  TRandom & rand = *gRandom)
 {
-   // use default ROOT generator
-   TRandom & rand = *gRandom; 
-
    size_t m = X.GetNrows();
    size_t n = X.GetNcols();
 
    for (size_t i = 0; i < m; ++i)
       for (size_t j = 0; j < n; ++j)
          X(i,j) = rand.Gaus(mean, sigma);
-
 }
 
 /*! Fill matrix with random, uniform-distributed values in [-1, 1] */
@@ -489,6 +486,32 @@ auto maximumRelativeError(const Matrix1 &X, const Matrix2 &Y) -> Double_t
    }
 
    return maxError;
+}
+
+/** Compute the average element-wise absolute error of the matrices
+ *  X and Y.
+ */
+
+//______________________________________________________________________________
+template <typename Matrix1, typename Matrix2>
+auto meanAbsoluteError(const Matrix1 &X, const Matrix2 &Y) -> Double_t
+{
+   Double_t avgError = 0;
+
+   Int_t m = X.GetNrows();
+   Int_t n = X.GetNcols();
+
+   assert(m == Y.GetNrows());
+   assert(n == Y.GetNcols());
+
+   for (Int_t i = 0; i < m; i++) {
+      for (Int_t j = 0; j < n; j++) {
+         avgError += std::abs(X(i, j) - Y(i, j));
+      }
+   }
+
+   avgError /= (n * m);
+   return avgError;
 }
 
 /*! Numerically compute the derivative of the functional f using finite

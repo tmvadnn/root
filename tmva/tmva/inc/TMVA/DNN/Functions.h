@@ -76,6 +76,12 @@ enum class EInitialization {
     kGlorotUniform = 'F',
 };
 
+/// Enum representing the optimizer used for training.
+enum class EOptimizer {
+   kSGD = 0,
+   kAdam = 1,
+};
+
 //______________________________________________________________________________
 //
 //  Activation Functions

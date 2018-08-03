@@ -19,7 +19,7 @@
 /**
 * \class ROOT::RDataFrame
 * \ingroup dataframe
-* \brief ROOT's RDataFrame offers a high level interface for analyses of data stored in `TTree`s.
+* \brief ROOT's RDataFrame offers a high level interface for analyses of data stored in `TTree`s, CSV's and other data formats.
 
 In addition, multi-threading and other low-level optimisations allow users to exploit all the resources available
 on their machines completely transparently.<br>
@@ -28,28 +28,32 @@ Skip to the [class reference](#reference) or keep reading for the user guide.
 In a nutshell:
 ~~~{.cpp}
 ROOT::EnableImplicitMT(); // Tell ROOT you want to go parallel
-ROOT::RDataFrame d("myTree", "file.root"); // Interface to TTree and TChain
+ROOT::RDataFrame d("myTree", "file_*.root"); // Interface to TTree and TChain
 auto myHisto = d.Histo1D("Branch_A"); // This happens in parallel!
 myHisto->Draw();
 ~~~
 
 Calculations are expressed in terms of a type-safe *functional chain of actions and transformations*, `RDataFrame` takes
 care of their execution. The implementation automatically puts in place several low level optimisations such as
-multi-thread parallelisation and caching. The namespace containing the RDataFrame is ROOT.
+multi-thread parallelisation and caching.
 
 \htmlonly
 <a href="https://doi.org/10.5281/zenodo.260230"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.260230.svg"
 alt="DOI"></a>
 \endhtmlonly
 
-## Cheat sheet
+## Table of Contents
+- [Cheat sheet](#cheatsheet)
+- [Introduction](#introduction)
+- [Crash course](#crash-course)
+- [More features](#more-features)
+- [Transformations](#transformations) -- manipulating data
+- [Actions](#actions) -- getting results
+- [Parallel execution](#parallel-execution) -- how to use it and common pitfalls
+- [Class reference](#reference) -- most methods are implemented in the RInterface base class
+
+## <a name="cheatsheet"></a>Cheat sheet
 These are the operations which can be performed with RDataFrame
-
-Here is a quick overview of what actions are present and what they do. Each one is described in more detail in the
-reference guide.
-
-In the following, whenever we say an action "returns" something, we always mean it returns a smart pointer to it. Also
-note that all actions are only executed for events that pass all preceding filters.
 
 ### Transformations
 Transformations are a way to manipulated the data.
@@ -63,9 +67,16 @@ Transformations are a way to manipulated the data.
 | [Range](classROOT_1_1RDF_1_1RInterface.html#a1b36b7868831de2375e061bb06cfc225) | Creates a node that filters entries based on range of entries |
 
 ### Actions
-Actions are a way to get a result out of the data.
+Actions are a way to produce a result out of the data. Each one is described in more detail in the reference guide.
 
-| **Lazy actions** | **Description** |
+In the following, whenever we say an action "returns" something, we always mean it returns a smart pointer to it. Also
+note that all actions are only executed for events that pass all preceding filters.
+
+Lazy actions only trigger the event loop when one of the results is accessed for the first time, making it easy to
+produce several different results in one event loop. Instant actions trigger the event loop instantly.
+
+
+| **Lazy action** | **Description** |
 |------------------|-----------------|
 | [Aggregate](classROOT_1_1RDF_1_1RInterface.html#ae540b00addc441f9b504cbae0ef0a24d) | Execute a user-defined accumulation operation on the processed column values. |
 | [Book](classROOT_1_1RDF_1_1RInterface.html#a9b2f61f3333d1669e57055b9ae8be9d9) | Book execution of a custom action using a user-defined helper object. |
@@ -81,8 +92,10 @@ Actions are a way to get a result out of the data.
 | [Report](classROOT_1_1RDF_1_1RInterface.html#a94f322531dcb25beb8f53a602e5d6332) | Obtains statistics on how many entries have been accepted and rejected by the filters. See the section on [named filters](#named-filters-and-cutflow-reports) for a more detailed explanation. The method returns a RCutFlowReport instance which can be queried programmatically to get information about the effects of the individual cuts. |
 | [Sum](classROOT_1_1RDF_1_1RInterface.html#a61d03407459120df6749af43ed506891) | Return the sum of the values in the column. If the type of the column is inferred, the return type is `double`, the type of the column otherwise. |
 | [Take](classROOT_1_1RDF_1_1RInterface.html#a4fd694773a2931b6b07737ddcd1e73b4) | Extract a column from the dataset as a collection of values. If the type of the column is a C-style array, the type stored in the return container is a `ROOT::VecOps::RVec<T>` to guarantee the lifetime of the data involved. |
+| [StdDev](classROOT_1_1RDF_1_1RInterface.html#a482c4e4f81fe1e421c016f89cd281572) | Return the unbiased standard deviation of the processed branch values. |
+| [Graph](classROOT_1_1RDF_1_1RInterface.html#a804b466ebdbddef5c7e3400cc6b89301) | Fills a TGraph with the two columns provided. If Multithread is enabled, the order of the points may not be the one expected, it is therefore suggested to sort if before drawing. |
 
-| **Instant actions** | **Description** |
+| **Instant action** | **Description** |
 |---------------------|-----------------|
 | [Foreach](classROOT_1_1RDF_1_1RInterface.html#ad2822a7ccb8a9afdf3e5b2ea321886ca) | Execute a user-defined function on each entry. Users are responsible for the thread-safety of this lambda when executing with implicit multi-threading enabled. |
 | [ForeachSlot](classROOT_1_1RDF_1_1RInterface.html#a3650ca30aae1ccd0d92bf3d680314129) | Same as `Foreach`, but the user-defined function must take an extra `unsigned int slot` as its first parameter. `slot` will take a different value, `0` to `nThreads - 1`, for each thread of execution. This is meant as a helper in writing thread-safe `Foreach` actions when using `RDataFrame` after `ROOT::EnableImplicitMT()`. `ForeachSlot` works just as well with single-thread execution: in that case `slot` will always be `0`. |
@@ -91,21 +104,11 @@ Actions are a way to get a result out of the data.
 
 ### Other Operations
 
-| **Operations** | **Description** |
+| **Operation** | **Description** |
 |---------------------|-----------------|
 | [Alias](classROOT_1_1RDF_1_1RInterface.html#a31ca327e4a192dcc05a4aac240e1a725) | Introduce an alias for a particular column name |
 | [GetColumnNames](classROOT_1_1RDF_1_1RInterface.html#a951fe60b74d3a9fda37df59fd1dac186) | Get all the available columns of the dataset |
 
-
-
-## Table of Contents
-- [Introduction](#introduction)
-- [Crash course](#crash-course)
-- [More features](#more-features)
-- [Transformations](#transformations) -- manipulating data
-- [Actions](#actions) -- getting results
-- [Parallel execution](#parallel-execution) -- how to use it and common pitfalls
-- [Class reference](#reference) -- most methods are implemented in the RInterface base class
 
 ## <a name="introduction"></a>Introduction
 Users define their analysis as a sequence of operations to be performed on the data-frame object; the framework
@@ -499,19 +502,13 @@ You see how we created one `double` variable for each thread in the pool, and la
 Friend trees are supported by RDataFrame.
 In order to deal with friend trees with RDataFrame, the user is required to build
 the tree and its friends and instantiate a RDataFrame with it.
-Two caveats are presents when using jitted `Define`s and `Filter`s:
-1) the only columns which can be used in the strings passed to the aforementioned transformations are the top level branches of the friend trees.
-2) the "friend columns" cannot be written with the notation involving a dot. For example, if a tree is created like this:
 ~~~{.cpp}
 TTree t([...]);
 TTree ft([...]);
-t.AddFriend(t,"myFriend");
-~~~
-in order to access a certain column `col` of the tree ft, it will be necessary to alias it before. To continue the example:
-~~~{.cpp}
+t.AddFriend(ft, "myFriend");
+
 RDataFrame d(t);
-d.Alias("myFriend_MyCol", "myFriend.MyCol");
-auto f = d.Filter("myFriend_MyCol == 42");
+auto f = d.Filter("myFriend.MyCol == 42");
 ~~~
 
 ### Reading file formats different from ROOT's
@@ -571,6 +568,14 @@ filter or temporary column once per event**, regardless of how many times that r
 Objects read from each column are **built once and never copied**, for maximum efficiency.
 When "upstream" filters are not passed, subsequent filters, temporary column expressions and actions are not evaluated,
 so it might be advisable to put the strictest filters first in the chain.
+
+### Using Snapshot as a lazy action
+To use Snapshot without triggering the event loop, `RSnapshotOptions` is needed.
+~~~{.cpp}
+RSnapshotOptions opts;
+opts.fLazy = true;
+df.Snapshot("outputTree", "outputFile.root", {"x"}, opts);
+~~~
 
 ##  <a name="transformations"></a>Transformations
 ### <a name="Filters"></a> Filters

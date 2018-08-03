@@ -14,6 +14,7 @@
 #include <chrono>
 #include <thread>
 #include <set>
+#include <random>
 
 using namespace ROOT;
 using namespace ROOT::RDF;
@@ -443,8 +444,10 @@ TEST_P(RDFSimpleTests, Reduce)
    auto d = RDataFrame(5).DefineSlotEntry("x", [](unsigned int, ULong64_t e) { return static_cast<int>(e) + 1; });
    auto r1 = d.Reduce([](int x, int y) { return x + y; }, "x");
    auto r2 = d.Reduce([](int x, int y) { return x * y; }, "x", 1);
+   auto r3 = d.Define("b", [] { return true; }).Reduce([](bool a, bool b) { return a == b; }, "b", true);
    EXPECT_EQ(*r1, 15);
    EXPECT_EQ(*r2, 120);
+   EXPECT_EQ(*r3, true);
 }
 
 TEST_P(RDFSimpleTests, Aggregate)
@@ -457,6 +460,8 @@ TEST_P(RDFSimpleTests, Aggregate)
    EXPECT_EQ(*r1, 15);
    EXPECT_EQ(*r2, 120);
 }
+
+
 
 TEST_P(RDFSimpleTests, AggregateGraph)
 {
@@ -486,6 +491,41 @@ TEST_P(RDFSimpleTests, AggregateGraph)
    }
 }
 
+TEST_P(RDFSimpleTests, Graph)
+{
+   static const int NR_ELEMENTS = 20;
+
+   // Define the source for the graph
+   std::vector<int> source(NR_ELEMENTS);
+   for (int i = 0; i < NR_ELEMENTS; ++i)
+      source[i] = i;
+
+   // Create the graph from the Dataframe
+   ROOT::RDataFrame d(NR_ELEMENTS);
+   auto dd = d.DefineSlotEntry("x1",
+                               [&source](unsigned int slot, ULong64_t entry) {
+                                  (void)slot;
+                                  return source[entry];
+                               })
+                .DefineSlotEntry("x2", [&source](unsigned int slot, ULong64_t entry) {
+                   (void)slot;
+                   return source[entry];
+                });
+
+   auto dfGraph = dd.Graph("x1", "x2");
+   EXPECT_EQ(dfGraph->GetN(), NR_ELEMENTS);
+
+   //To perform the test, it's easier to sort
+   dfGraph->Sort();
+
+   Double_t x, y;
+   for (int i = 0; i < NR_ELEMENTS; ++i) {
+      dfGraph->GetPoint(i, x, y);
+      EXPECT_EQ(i, x);
+      EXPECT_EQ(i, y);
+   }
+}
+
 class MaxSlotHelper : public ROOT::Detail::RDF::RActionImpl<MaxSlotHelper> {
    const std::shared_ptr<unsigned int> fMaxSlot; // final result
    std::vector<unsigned int> fMaxSlots;          // per-thread partial results
@@ -511,6 +551,113 @@ TEST_P(RDFSimpleTests, BookCustomAction)
    const auto nWorkers = std::max(1u, ROOT::GetImplicitMTPoolSize());
    auto maxSlot = d.Book<unsigned int>(MaxSlotHelper(nWorkers), {"tdfslot_"});
    EXPECT_EQ(*maxSlot, nWorkers-1);
+}
+
+class StdDevTestHelper {
+private:
+   std::default_random_engine fGenerator;
+   std::normal_distribution<double> fDistribution;
+   std::vector<double> samples;
+
+public:
+   void GenerateNumbers(int n)
+   {
+      std::vector<double> numbers;
+      for (int i = 0; i < n; ++i)
+         numbers.push_back(fDistribution(fGenerator));
+      samples = numbers;
+   }
+
+   double stdDevFromDefinition()
+   {
+      // Calculating the Variance using the definition
+      int nSamples = samples.size();
+      double mean = 0;
+      for (int i = 0; i < nSamples; ++i) {
+         mean += samples[i];
+      }
+      mean = mean / nSamples;
+
+      double varianceRight = 0;
+
+      for (int i = 0; i < nSamples; ++i) {
+         varianceRight += std::pow((samples[i] - mean), 2);
+      }
+      varianceRight = varianceRight / (nSamples - 1);
+      return std::sqrt(varianceRight);
+   }
+
+   double stdDevFromWelford()
+   {
+      ROOT::RDataFrame d(samples.size());
+      return *d.DefineSlotEntry("x",
+                                [this](unsigned int slot, ULong64_t entry) {
+                                   (void)slot;
+                                   return samples[entry];
+                                })
+                 .StdDev("x");
+   }
+};
+
+TEST_P(RDFSimpleTests, StandardDeviation)
+{
+   RDataFrame rd1(8);
+   auto stdDev = rd1.StdDev<ULong64_t>("tdfentry_");
+   EXPECT_DOUBLE_EQ(*stdDev, 2.4494897427831779);
+}
+
+TEST_P(RDFSimpleTests, StandardDeviationPrecision)
+{
+   const int maxNSamples = 100;
+   const int step = 10;
+   const int nTrials = 1;
+
+   StdDevTestHelper helper;
+
+   for (int j = 2; j < maxNSamples; j += step) {
+      for (int i = 0; i < nTrials; ++i) {
+         auto varianceFromDef = helper.stdDevFromDefinition();
+         auto varianceFromWel = helper.stdDevFromWelford();
+         EXPECT_DOUBLE_EQ(varianceFromDef, varianceFromWel);
+         helper.GenerateNumbers(j);
+      }
+   }
+}
+
+TEST_P(RDFSimpleTests, StandardDeviationCollections)
+{
+   RDataFrame tdf(3);
+   auto stdDev = tdf.Define("vector",
+                            []() {
+                               std::vector<int> v(3);
+                               v[0] = 0;
+                               v[1] = 1;
+                               v[2] = 2;
+                               return v;
+                            })
+                    .StdDev<std::vector<int>>("vector");
+   EXPECT_DOUBLE_EQ(*stdDev, 0.86602540378443871);
+}
+
+TEST_P(RDFSimpleTests, StandardDeviationZero)
+{
+   RDataFrame rd1(8);
+   auto stdDev = rd1.Define("b1", []() { return 0; }).StdDev("b1");
+   EXPECT_DOUBLE_EQ(*stdDev, 0);
+}
+
+TEST_P(RDFSimpleTests, StandardDeviationOne)
+{
+   RDataFrame rd1(1);
+   auto stdDev = rd1.Define("b1", []() { return 1; }).StdDev("b1");
+   EXPECT_DOUBLE_EQ(*stdDev, 0);
+}
+
+TEST_P(RDFSimpleTests, StandardDeviationEmpty)
+{
+   RDataFrame rd1(0);
+   auto stdDev = rd1.Define("b1", []() { return 0; }).StdDev("b1");
+   EXPECT_DOUBLE_EQ(*stdDev, 0);
 }
 
 // run single-thread tests

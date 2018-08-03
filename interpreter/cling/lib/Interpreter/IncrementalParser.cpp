@@ -17,6 +17,7 @@
 #include "DeclCollector.h"
 #include "DeclExtractor.h"
 #include "DynamicLookup.h"
+#include "IncrementalCUDADeviceCompiler.h"
 #include "IncrementalExecutor.h"
 #include "NullDerefProtectionTransformer.h"
 #include "TransactionPool.h"
@@ -38,6 +39,9 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/CodeGen/ModuleBuilder.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/FrontendDiagnostic.h"
+#include "clang/Frontend/FrontendPluginRegistry.h"
+#include "clang/Frontend/MultiplexConsumer.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Parse/Parser.h"
@@ -45,6 +49,7 @@
 #include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Serialization/ASTWriter.h"
 #include "clang/Serialization/ASTReader.h"
+#include "llvm/Support/Path.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -118,7 +123,7 @@ namespace {
       m_PrevClient.EndSourceFile();
       SyncDiagCountWithTarget();
     }
-  
+
     void finish() override {
       m_PrevClient.finish();
       SyncDiagCountWithTarget();
@@ -177,10 +182,47 @@ namespace {
   };
 } // unnamed namespace
 
+static void HandlePlugins(CompilerInstance& CI,
+                         std::vector<std::unique_ptr<ASTConsumer>>& Consumers) {
+  // Copied from Frontend/FrontendAction.cpp.
+  // FIXME: Remove when we switch to a tools-based cling driver.
+
+  // If the FrontendPluginRegistry has plugins before loading any shared library
+  // this means we have linked our plugins. This is useful when cling runs in
+  // embedded mode (in a shared library). This is the only feasible way to have
+  // plugins if cling is in a single shared library which is dlopen-ed with
+  // RTLD_LOCAL. In that situation plugins can still find the cling, clang and
+  // llvm symbols opened with local visibility.
+  if (FrontendPluginRegistry::begin() == FrontendPluginRegistry::end())
+    for (const std::string& Path : CI.getFrontendOpts().Plugins) {
+      std::string Err;
+      if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(Path.c_str(), &Err))
+        CI.getDiagnostics().Report(clang::diag::err_fe_unable_to_load_plugin)
+          << Path << Err;
+  }
+
+  for (auto it = clang::FrontendPluginRegistry::begin(),
+         ie = clang::FrontendPluginRegistry::end();
+       it != ie; ++it) {
+    std::unique_ptr<clang::PluginASTAction> P(it->instantiate());
+
+    PluginASTAction::ActionType PluginActionType = P->getActionType();
+    assert(PluginActionType != clang::PluginASTAction::ReplaceAction);
+
+    if (P->ParseArgs(CI, CI.getFrontendOpts().PluginArgs[it->getName()])) {
+      std::unique_ptr<ASTConsumer> PluginConsumer
+        = P->CreateASTConsumer(CI, /*InputFile*/ "");
+      if (PluginActionType == clang::PluginASTAction::AddBeforeMainAction)
+        Consumers.insert(Consumers.begin(), std::move(PluginConsumer));
+      else
+        Consumers.push_back(std::move(PluginConsumer));
+    }
+  }
+}
+
 namespace cling {
   IncrementalParser::IncrementalParser(Interpreter* interp, const char* llvmdir)
-      : m_Interpreter(interp),
-        m_ModuleNo(0) {
+      : m_Interpreter(interp) {
     std::unique_ptr<cling::DeclCollector> consumer;
     consumer.reset(m_Consumer = new cling::DeclCollector());
     m_CI.reset(CIFactory::createCI("", interp->getOptions(), llvmdir,
@@ -199,20 +241,65 @@ namespace cling {
       return;
     }
 
+
+    std::vector<std::unique_ptr<ASTConsumer>> Consumers;
+    HandlePlugins(*m_CI, Consumers);
+    std::unique_ptr<ASTConsumer> WrappedConsumer;
+
     DiagnosticsEngine& Diag = m_CI->getDiagnostics();
     if (m_CI->getFrontendOpts().ProgramAction != frontend::ParseSyntaxOnly) {
-      m_CodeGen.reset(CreateLLVMCodeGen(
-          Diag, makeModuleName(), m_CI->getHeaderSearchOpts(),
-          m_CI->getPreprocessorOpts(), m_CI->getCodeGenOpts(),
-          *m_Interpreter->getLLVMContext()));
+      auto CG
+        = std::unique_ptr<clang::CodeGenerator>(CreateLLVMCodeGen(Diag,
+                                                               makeModuleName(),
+                                                    m_CI->getHeaderSearchOpts(),
+                                                    m_CI->getPreprocessorOpts(),
+                                                         m_CI->getCodeGenOpts(),
+                                               *m_Interpreter->getLLVMContext())
+                                                );
+      m_CodeGen = CG.get();
+      assert(m_CodeGen);
+      if (!Consumers.empty()) {
+        Consumers.push_back(std::move(CG));
+        WrappedConsumer.reset(new MultiplexConsumer(std::move(Consumers)));
+      }
+      else
+        WrappedConsumer = std::move(CG);
     }
 
     // Initialize the DeclCollector and add callbacks keeping track of macros.
-    m_Consumer->Setup(this, m_CodeGen.get(), m_CI->getPreprocessor());
+    m_Consumer->Setup(this, std::move(WrappedConsumer), m_CI->getPreprocessor());
 
     m_DiagConsumer.reset(new FilteringDiagConsumer(Diag, false));
 
     initializeVirtualFile();
+
+    if(m_CI->getFrontendOpts().ProgramAction != frontend::ParseSyntaxOnly &&
+      m_Interpreter->getOptions().CompilerOpts.CUDA){
+        // Create temporary folder for all files, which the CUDA device compiler
+        // will generate.
+        llvm::SmallString<256> TmpPath;
+        llvm::StringRef sep = llvm::sys::path::get_separator().data();
+        llvm::sys::path::system_temp_directory(false, TmpPath);
+        TmpPath.append(sep.data());
+        TmpPath.append("cling-%%%%");
+        TmpPath.append(sep.data());
+
+        llvm::SmallString<256> TmpFolder;
+        llvm::sys::fs::createUniqueFile(TmpPath.c_str(), TmpFolder);
+        llvm::sys::fs::create_directory(TmpFolder);
+
+        // The CUDA fatbin file is the connection beetween the CUDA device
+        // compiler and the CodeGen of cling. The file will every time reused.
+        if(getCI()->getCodeGenOpts().CudaGpuBinaryFileNames.empty())
+          getCI()->getCodeGenOpts().CudaGpuBinaryFileNames.push_back(
+            std::string(TmpFolder.c_str()) + "cling.fatbin");
+
+        m_CUDACompiler.reset(
+          new IncrementalCUDADeviceCompiler(TmpFolder.c_str(),
+                                            m_CI->getCodeGenOpts().OptimizationLevel,
+                                            m_Interpreter->getOptions(),
+                                            *m_CI));
+    }
   }
 
   bool
@@ -226,13 +313,6 @@ namespace cling {
     Transaction* CurT = beginTransaction(CO);
     Preprocessor& PP = m_CI->getPreprocessor();
     DiagnosticsEngine& Diags = m_CI->getSema().getDiagnostics();
-
-    ASTReader* Reader = m_CI->getModuleManager().get();
-    assert(isa<ASTDeserializationListener>(m_Consumer));
-    ASTDeserializationListener* Listener = cast<ASTDeserializationListener>(m_Consumer);
-    // FIXME: We should create a multiplexing deserialization listener if there is one already attached.
-    if (Reader && Listener && !Reader->getDeserializationListener())
-      Reader->setDeserializationListener(Listener);
 
     // Pull in PCH.
     const std::string& PCHFileName
@@ -799,6 +879,9 @@ namespace cling {
       return kFailed;
     else if (Diags.getNumWarnings())
       return kSuccessWithWarnings;
+
+    if(!m_Interpreter->isInSyntaxOnlyMode() && m_CI->getLangOpts().CUDA )
+      m_CUDACompiler->compileDeviceCode(input, m_Consumer->getTransaction());
 
     return kSuccess;
   }

@@ -88,8 +88,8 @@ void TCpu<Real_t>::Hadamard(TCpuMatrix<Real_t> &B,
    const Real_t *dataA      = A.GetRawDataPointer();
    Real_t *dataB      = B.GetRawDataPointer();
 
-   size_t nElements =  A.GetNElements();
-   R__ASSERT(B.GetNElements() == nElements); 
+   size_t nElements =  A.GetNoElements();
+   R__ASSERT(B.GetNoElements() == nElements); 
    size_t nSteps = TCpuMatrix<Real_t>::GetNWorkItems(nElements);
 
    auto f = [&](UInt_t workerID)
@@ -108,6 +108,31 @@ void TCpu<Real_t>::Hadamard(TCpuMatrix<Real_t> &B,
    for (size_t i = 0;  i < nElements ; i+= nSteps)
       f(i);
 #endif
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// \brief Checks two matrices for element-wise equality.
+/// \tparam Real_t An architecture-specific floating point number type.
+/// \param A The first matrix.
+/// \param B The second matrix.
+/// \param epsilon Equality tolerance, needed to address floating point arithmetic.
+/// \return Whether the two matrices can be considered equal element-wise
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename Real_t>
+bool TCpu<Real_t>::AlmostEquals(const TCpuMatrix<Real_t> &A, const TCpuMatrix<Real_t> &B, double epsilon)
+{
+    if (A.GetNrows() != B.GetNrows() || A.GetNcols() != B.GetNcols()) {
+        Fatal("AlmostEquals", "The passed matrices have unequal shapes.");
+    }
+
+    const Real_t *dataA = A.GetRawDataPointer();
+    const Real_t *dataB = B.GetRawDataPointer();
+    size_t nElements =  A.GetNoElements();
+
+    for(size_t i = 0; i < nElements; i++) {
+        if(fabs(dataA[i] - dataB[i]) > epsilon) return false;
+    }
+    return true;
 }
 
 //____________________________________________________________________________
@@ -178,6 +203,45 @@ void TCpu<Real_t>::Copy(std::vector<TCpuMatrix<Real_t>> &B,
    }
 }
 
+//____________________________________________________________________________
+template <typename Real_t>
+void TCpu<Real_t>::ConstAdd(TCpuMatrix<Real_t> &A, Real_t beta)
+{
+   auto f = [beta](Real_t x) { return x + beta; };
+   A.Map(f);
+}
+
+//____________________________________________________________________________
+template <typename Real_t>
+void TCpu<Real_t>::ConstMult(TCpuMatrix<Real_t> &A, Real_t beta)
+{
+   auto f = [beta](Real_t x) { return x * beta; };
+   A.Map(f);
+}
+
+//____________________________________________________________________________
+template <typename Real_t>
+void TCpu<Real_t>::ReciprocalElementWise(TCpuMatrix<Real_t> &A)
+{
+   auto f = [](Real_t x) { return 1.0 / x; };
+   A.Map(f);
+}
+
+//____________________________________________________________________________
+template <typename Real_t>
+void TCpu<Real_t>::SquareElementWise(TCpuMatrix<Real_t> &A)
+{
+   auto f = [](Real_t x) { return x * x; };
+   A.Map(f);
+}
+
+//____________________________________________________________________________
+template <typename Real_t>
+void TCpu<Real_t>::SqrtElementWise(TCpuMatrix<Real_t> &A)
+{
+   auto f = [](Real_t x) { return sqrt(x); };
+   A.Map(f);
+}
 
 } // DNN
 } // TMVA
