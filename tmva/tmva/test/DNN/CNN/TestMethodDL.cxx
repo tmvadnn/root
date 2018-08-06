@@ -33,7 +33,7 @@ int main()
 
    TString archCPU = "CPU";
 
-   testMethodDL_DNN(archCPU);
+   //testMethodDL_DNN(archCPU);
    testMethodDL_CNN(archCPU);
 
 }

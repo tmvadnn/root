@@ -496,6 +496,8 @@ void MethodDL::CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
       } else if (strLayerType == "LSTM") {
          Log() << kFATAL << "LSTM Layer is not yet fully implemented" << Endl;
          //ParseLstmLayer(deepNet, nets, layerString->GetString(), subDelimiter);
+      } else if (strLayerType == "PADDING2D") {
+         ParsePaddingLayer2D(deepNet, nets, layerString->GetString(), subDelimiter);
       }
    }
 }
@@ -876,6 +878,61 @@ void MethodDL::ParseLstmLayer(DNN::TDeepNet<Architecture_t, Layer_t> & /*deepNet
       }
       ++idxToken;
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// Pases the layer string and creates the appropriate padding layer
+template <typename Architecture_t, typename Layer_t>
+void MethodDL::ParsePaddingLayer2D(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
+                                 std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> & /*nets*/, TString layerString,
+                                 TString delim)
+{
+   int topPad = 0;
+   int bottomPad = 0;
+   int leftPad = 0;
+   int rightPad = 0;
+
+   //layout expected: topPad|bottomPad|leftPad|rightPad
+
+   // Split layer details
+   TObjArray *subStrings = layerString.Tokenize(delim);
+   TIter nextToken(subStrings);
+   TObjString *token = (TObjString *)nextToken();
+   int idxToken = 0;
+
+   for (; token != nullptr; token = (TObjString *)nextToken()) {
+
+      switch (idxToken) {
+      case 1: // top padding
+      {
+         TString strTopPad(token->GetString());
+         topPad = strTopPad.Atoi();
+      } break;
+      case 2: // bottom padding
+      {
+         TString strBottomPad(token->GetString());
+         bottomPad = strBottomPad.Atoi();
+      } break;
+      case 3: // left padding
+      {
+         TString strLeftPad(token->GetString());
+         leftPad = strLeftPad.Atoi();
+      } break;
+      case 4: // right padding
+      {
+         TString strRightPad(token->GetString());
+         rightPad = strRightPad.Atoi();
+      } break;
+      }
+      ++idxToken;
+   }
+
+   // Add the padding layer
+   deepNet.AddPaddingLayer2D(topPad, bottomPad, leftPad, rightPad);
+
+   // Add the same layer to fNet
+   if (fBuildNet) fNet->AddPaddingLayer2D(topPad, bottomPad, leftPad, rightPad);
+   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1638,6 +1695,18 @@ void MethodDL::ReadWeightsFromXML(void * rootXML)
          fNet->AddBasicRNNLayer(stateSize, inputSize, timeSteps, rememberState);
          
       }
+      else if (layerName == "PaddingLayer2D") {
+
+         // read reshape layer info
+         size_t leftPad, rightPad, topPad, bottomPad = 0; 
+         gTools().ReadAttr(layerXML, "LeftPad", leftPad);
+         gTools().ReadAttr(layerXML, "RightPad", rightPad);
+         gTools().ReadAttr(layerXML, "TopPad", topPad);
+         gTools().ReadAttr(layerXML, "BottomPad", bottomPad);
+
+         fNet->AddPaddingLayer2D(topPad, bottomPad, leftPad, rightPad);
+
+      }      
 
 
       // read eventually weights and biases
