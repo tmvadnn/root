@@ -1693,6 +1693,18 @@ void MethodDL::ReadWeightsFromXML(void * rootXML)
          fNet->AddBasicRNNLayer(stateSize, inputSize, timeSteps, rememberState);
          
       }
+      else if (layerName == "PaddingLayer") {
+
+         // read reshape layer info
+         size_t leftPad, rightPad, topPad, bottomPad = 0; 
+         gTools().ReadAttr(layerXML, "LeftPad", leftPad);
+         gTools().ReadAttr(layerXML, "RightPad", rightPad);
+         gTools().ReadAttr(layerXML, "TopPad", topPad);
+         gTools().ReadAttr(layerXML, "BottomPad", bottomPad);
+
+         fNet->AddPaddingLayer(topPad, bottomPad, leftPad, rightPad);
+
+      }      
 
 
       // read eventually weights and biases
