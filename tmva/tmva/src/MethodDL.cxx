@@ -496,8 +496,8 @@ void MethodDL::CreateDeepNet(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
       } else if (strLayerType == "LSTM") {
          Log() << kFATAL << "LSTM Layer is not yet fully implemented" << Endl;
          //ParseLstmLayer(deepNet, nets, layerString->GetString(), subDelimiter);
-      } else if (strLayerType == "PADDING") {
-         ParsePaddingLayer(deepNet, nets, layerString->GetString(), subDelimiter);
+      } else if (strLayerType == "PADDING2D") {
+         ParsePaddingLayer2D(deepNet, nets, layerString->GetString(), subDelimiter);
       }
    }
 }
@@ -883,7 +883,7 @@ void MethodDL::ParseLstmLayer(DNN::TDeepNet<Architecture_t, Layer_t> & /*deepNet
 ////////////////////////////////////////////////////////////////////////////////
 /// Pases the layer string and creates the appropriate padding layer
 template <typename Architecture_t, typename Layer_t>
-void MethodDL::ParsePaddingLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
+void MethodDL::ParsePaddingLayer2D(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
                                  std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> & /*nets*/, TString layerString,
                                  TString delim)
 {
@@ -891,6 +891,8 @@ void MethodDL::ParsePaddingLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet
    int bottomPad = 0;
    int leftPad = 0;
    int rightPad = 0;
+
+   //layout expected: topPad|bottomPad|leftPad|rightPad
 
    // Split layer details
    TObjArray *subStrings = layerString.Tokenize(delim);
@@ -926,10 +928,10 @@ void MethodDL::ParsePaddingLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet
    }
 
    // Add the padding layer
-   deepNet.AddPaddingLayer(topPad, bottomPad, leftPad, rightPad);
+   deepNet.AddPaddingLayer2D(topPad, bottomPad, leftPad, rightPad);
 
    // Add the same layer to fNet
-   if (fBuildNet) fNet->AddPaddingLayer(topPad, bottomPad, leftPad, rightPad);
+   if (fBuildNet) fNet->AddPaddingLayer2D(topPad, bottomPad, leftPad, rightPad);
    
 }
 
@@ -1693,7 +1695,7 @@ void MethodDL::ReadWeightsFromXML(void * rootXML)
          fNet->AddBasicRNNLayer(stateSize, inputSize, timeSteps, rememberState);
          
       }
-      else if (layerName == "PaddingLayer") {
+      else if (layerName == "PaddingLayer2D") {
 
          // read reshape layer info
          size_t leftPad, rightPad, topPad, bottomPad = 0; 
@@ -1702,7 +1704,7 @@ void MethodDL::ReadWeightsFromXML(void * rootXML)
          gTools().ReadAttr(layerXML, "TopPad", topPad);
          gTools().ReadAttr(layerXML, "BottomPad", bottomPad);
 
-         fNet->AddPaddingLayer(topPad, bottomPad, leftPad, rightPad);
+         fNet->AddPaddingLayer2D(topPad, bottomPad, leftPad, rightPad);
 
       }      
 

@@ -24,8 +24,8 @@
  * (http://tmva.sourceforge.net/LICENSE)                                          *
  **********************************************************************************/
 
-#ifndef TMVA_CNN_PADDINGLAYER
-#define TMVA_CNN_PADDINGLAYER
+#ifndef TMVA_CNN_PADDINGLAYER2D
+#define TMVA_CNN_PADDINGLAYER2D
 
 #include "TMatrix.h"
 
@@ -40,7 +40,7 @@ namespace DNN {
 namespace CNN {
 
 template <typename Architecture_t>
-class TPaddingLayer : public VGeneralLayer<Architecture_t>
+class TPaddingLayer2D : public VGeneralLayer<Architecture_t>
 {
 
 public:
@@ -59,16 +59,16 @@ private:
 
 public:
 	/*! Constructor. */
-	TPaddingLayer(size_t BatchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth, size_t depth, size_t height, size_t width, size_t TopPad, size_t BottomPad, size_t LeftPad, size_t RightPad);
+	TPaddingLayer2D(size_t BatchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth, size_t depth, size_t height, size_t width, size_t TopPad, size_t BottomPad, size_t LeftPad, size_t RightPad);
 
 	/*! Copy the conv layer provided as a pointer */
-	TPaddingLayer(TPaddingLayer<Architecture_t> *layer);
+	TPaddingLayer2D(TPaddingLayer2D<Architecture_t> *layer);
 
 	/*! Copy constructor. */
-	TPaddingLayer(const TPaddingLayer &);
+	TPaddingLayer2D(const TPaddingLayer2D &);
 
 	/*! Destructor. */
-	~TPaddingLayer();
+	~TPaddingLayer2D();
 
 	/*! Pads the input array with the dimensions given by
 	 *  the user. Padding is done in two dimensions for each
@@ -107,7 +107,7 @@ public:
 };
 
 template <typename Architecture_t>
-TPaddingLayer<Architecture_t>::TPaddingLayer(size_t batchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
+TPaddingLayer2D<Architecture_t>::TPaddingLayer2D(size_t batchSize, size_t inputDepth, size_t inputHeight, size_t inputWidth,
                                              size_t depth, size_t height, size_t width,
                                              size_t topPad, size_t bottomPad, size_t leftPad, size_t rightPad)
    : VGeneralLayer<Architecture_t>(batchSize, inputDepth, inputHeight, inputWidth, depth, height, width, 0, 0, 0, 0, 0,
@@ -116,13 +116,13 @@ TPaddingLayer<Architecture_t>::TPaddingLayer(size_t batchSize, size_t inputDepth
 {
 
 	this->outputHeight = inputHeight + topPad + bottomPad;
-	this->outputWidth = inputWidth + leftPad + rightPad;	
+	this->outputWidth = inputWidth + leftPad + rightPad;
 }
 
 
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-TPaddingLayer<Architecture_t>::TPaddingLayer(TPaddingLayer<Architecture_t> *layer)
+TPaddingLayer2D<Architecture_t>::TPaddingLayer2D(TPaddingLayer2D<Architecture_t> *layer)
    : VGeneralLayer<Architecture_t>(layer), fTopPad(layer->GetTopPadding()), fBottomPad(layer->GetBottomPadding()),
    	fLeftPad(layer->GetLeftPadding()), fRightPad(layer->GetRightPadding())
 {
@@ -130,7 +130,7 @@ TPaddingLayer<Architecture_t>::TPaddingLayer(TPaddingLayer<Architecture_t> *laye
 
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-TPaddingLayer<Architecture_t>::TPaddingLayer(const TPaddingLayer &layer)
+TPaddingLayer2D<Architecture_t>::TPaddingLayer2D(const TPaddingLayer2D &layer)
    : VGeneralLayer<Architecture_t>(layer), fTopPad(layer.fTopPad), fBottomPad(layer.fBottomPad),
    	fLeftPad(layer.fLeftPad), fRightPad(layer.fRightPad)
 {
@@ -139,14 +139,14 @@ TPaddingLayer<Architecture_t>::TPaddingLayer(const TPaddingLayer &layer)
 
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-TPaddingLayer<Architecture_t>::~TPaddingLayer()
+TPaddingLayer2D<Architecture_t>::~TPaddingLayer2D()
 {
    // Nothing to do here.
 }
 
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-auto TPaddingLayer<Architecture_t>::Forward(std::vector<Matrix_t> &input, bool /*applyDropout*/) -> void
+auto TPaddingLayer2D<Architecture_t>::Forward(std::vector<Matrix_t> &input, bool /*applyDropout*/) -> void
 {
 
   for (size_t i = 0; i < this->GetBatchSize(); i++) {
@@ -157,7 +157,7 @@ auto TPaddingLayer<Architecture_t>::Forward(std::vector<Matrix_t> &input, bool /
 
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-auto TPaddingLayer<Architecture_t>::Backward(std::vector<Matrix_t> &gradients_backward,
+auto TPaddingLayer2D<Architecture_t>::Backward(std::vector<Matrix_t> &gradients_backward,
                                              const std::vector<Matrix_t> & /*activations_backward*/,
                                              std::vector<Matrix_t> & /*inp1*/, std::vector<Matrix_t> &
                                              /*inp2*/) -> void
@@ -169,7 +169,7 @@ auto TPaddingLayer<Architecture_t>::Backward(std::vector<Matrix_t> &gradients_ba
 
 //_________________________________________________________________________________________________
 template <typename Architecture_t>
-auto TPaddingLayer<Architecture_t>::Print() const -> void
+auto TPaddingLayer2D<Architecture_t>::Print() const -> void
 {
    std::cout << " PADDING Layer \t ";
    std::cout << "Input = ( " << this->GetInputDepth() << " , " <<  this->GetInputHeight() << " , " << this->GetInputWidth() << " ) ";
@@ -180,9 +180,9 @@ auto TPaddingLayer<Architecture_t>::Print() const -> void
 }
 
 template <typename Architecture_t>
-auto TPaddingLayer<Architecture_t>::AddWeightsXMLTo(void *parent) -> void
+auto TPaddingLayer2D<Architecture_t>::AddWeightsXMLTo(void *parent) -> void
 {
-   auto layerxml = gTools().xmlengine().NewChild(parent, 0, "PaddingLayer");
+   auto layerxml = gTools().xmlengine().NewChild(parent, 0, "PaddingLayer2D");
 
    // write info for padding layer
    gTools().xmlengine().NewAttr(layerxml, 0, "LeftPad", gTools().StringFromInt(this->GetLeftPadding()));
@@ -195,14 +195,14 @@ auto TPaddingLayer<Architecture_t>::AddWeightsXMLTo(void *parent) -> void
 
 //______________________________________________________________________________
 template <typename Architecture_t>
-void TPaddingLayer<Architecture_t>::ReadWeightsFromXML(void * /*parent*/)
+void TPaddingLayer2D<Architecture_t>::ReadWeightsFromXML(void * /*parent*/)
 {
    // no info to read
 }
 
 
 template <typename Architecture_t>
-size_t TPaddingLayer<Architecture_t>::calculateDimension(size_t imgHeight, size_t imgWidth, size_t pad_left, size_t pad_right, size_t pad_top, size_t pad_bottom){
+size_t TPaddingLayer2D<Architecture_t>::calculateDimension(size_t imgHeight, size_t imgWidth, size_t pad_left, size_t pad_right, size_t pad_top, size_t pad_bottom){
 
 	size_t height = imgHeight + pad_top + pad_bottom;
 	size_t width  = imgWidth + pad_left + pad_right;

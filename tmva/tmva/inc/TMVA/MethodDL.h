@@ -127,7 +127,7 @@ private:
                           TString delim);
 
    template <typename Architecture_t, typename Layer_t>
-   void ParsePaddingLayer(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
+   void ParsePaddingLayer2D(DNN::TDeepNet<Architecture_t, Layer_t> &deepNet,
                           std::vector<DNN::TDeepNet<Architecture_t, Layer_t>> &nets, TString layerString,
                           TString delim);
 
