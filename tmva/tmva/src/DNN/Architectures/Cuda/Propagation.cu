@@ -139,6 +139,43 @@ void TCuda<AFloat>::Copy(std::vector<TCudaMatrix<AFloat>> & B,
 }
 
 //____________________________________________________________________________
+
+inline bool isInteger(double x)
+{
+   return x == floor(x);
+}
+
+int calculateDimension(size_t imgDim, size_t fltDim, size_t padding, size_t stride)
+{
+   double dimension = ((imgDim - fltDim + 2 * padding) / stride) + 1;
+   if (!isInteger(dimension)) {
+      std::cout << "Not compatible hyper parameters" << std::endl;
+      std::exit(EXIT_FAILURE);
+   }
+
+   return (size_t)dimension;
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+/// \brief A helper for image operations that rearranges image regions into
+///        column vectors.
+///
+/// \param[out] A The output matrix. Each row corresponds to a receptive field.
+/// \param[in] B The input matrix. Each row corresponds to a row in the image view.
+/// \param[in] imgHeight The heigh of the input.
+/// \param[in] imgWidth The output of the input.
+/// \param[in] fltHeight Height of the kernel.
+/// \param[in] fltWidth Width of the kernel.
+/// \param[in] strideRows stride size in the horizontal dimension.
+/// \param[in] strideCols stride size in the vertical dimension.
+/// \param[in] zeroPaddingHeight The padding in the horizontal dimension.
+/// \param[in] zeroPaddingWidth The padding in the vertical dimension.
+///
+/// This transformation allows us to express a 2D convolution as a matrix
+/// multiplication. We can therefore harness the finely tuned GEMM
+/// implementation of cuBLAS to achieve maximum performance. This function
+/// can greatly speed-up propagation in TConvLayer.
+///////////////////////////////////////////////////////////////////////////////////
 template<typename AFloat>
 void TCuda<AFloat>::Im2col(TCudaMatrix<AFloat> &A,
                            const TCudaMatrix<AFloat> &B,
@@ -151,6 +188,16 @@ void TCuda<AFloat>::Im2col(TCudaMatrix<AFloat> &A,
                            size_t zeroPaddingHeight,
                            size_t zeroPaddingWidth)
 {
+   size_t depth = B.GetNrows();
+
+   dim3 blockDims = TDevice::BlockDims2D();
+   dim3 gridDims  = TDevice::GridDims2D(A);
+   cudaStream_t s = A.GetComputeStream();
+
+   ::TMVA::DNN::Cuda::Im2Col<<<gridDims, blockDims, 0, s>>>(A.GetDataPointer(), B.GetDataPointer(), depth, imgHeight, imgWidth,
+                                                            fltHeight, fltWidth, strideRows, strideCols,
+                                                            zeroPaddingHeight, zeroPaddingWidth);
+
 
 }
 
@@ -250,6 +297,26 @@ void TCuda<AFloat>::AddConvBiases(TCudaMatrix<AFloat> &output,
 
 
 //____________________________________________________________________________
+//////////////////////////////////////////////////////////////////////////////////////////////
+/// \brief Downsampling function used as the forward propagation step of a
+///        Max-Pooling layer.
+///
+/// \param[out] A The output matrix. Each row corresponds to a slice and each element
+///             is the max within a receptive field.
+/// \param[out] B The winning indices matrix. Each element is the index of the max element.
+/// \param[in] C The input matrix. Each row is a slice.
+/// \param[in] imgHeight The heigh of the input.
+/// \param[in] imgWidth The output of the input.
+/// \param[in] fltHeight Height of the kernel.
+/// \param[in] fltWidth Width of the kernel.
+/// \param[in] strideRows stride size in the horizontal dimension.
+/// \param[in] strideCols stride size in the vertical dimension.
+///
+/// Each output element is the maximum of the receptive field. We also save the winning
+/// indices to facilitate back-propagation - we need to know which input element influenced
+/// the output and only apply the derivative correction to this particular element.
+/// The slicing process is the same as in a convolutional layer, however padding is set to 0.
+///////////////////////////////////////////////////////////////////////////////////////////////
 template<typename AFloat>
 void TCuda<AFloat>::Downsample(TCudaMatrix<AFloat> &A,
                                TCudaMatrix<AFloat> &B,
@@ -261,19 +328,40 @@ void TCuda<AFloat>::Downsample(TCudaMatrix<AFloat> &A,
                                size_t strideRows,
                                size_t strideCols)
 {
+   size_t depth = C.GetNrows();
 
+   dim3 blockDims = TDevice::BlockDims2D();
+   dim3 gridDims  = TDevice::GridDims2D(A);
+   cudaStream_t s = A.GetComputeStream();
+   ::TMVA::DNN::Cuda::Downsample<<<gridDims, blockDims, 0, s>>>(A.GetDataPointer(), B.GetDataPointer(),
+                                                                C.GetDataPointer(), depth, imgHeight, imgWidth,
+                                                                fltHeight, fltWidth, strideRows, strideCols);
 }
 
 //____________________________________________________________________________
 template<typename AFloat>
-void TCuda<AFloat>::MaxPoolLayerBackward(std::vector<TCudaMatrix<AFloat>> & activationGradientsBackward,
-                                         const std::vector<TCudaMatrix<AFloat>> & activationGradients,
-                                         const std::vector<TCudaMatrix<AFloat>> & indexMatrix,
-                                         size_t batchSize,
-                                         size_t depth,
+void TCuda<AFloat>::MaxPoolLayerBackward(TCudaMatrix<AFloat> & activationGradientsBackward,
+                                         const TCudaMatrix<AFloat> & activationGradients,
+                                         const TCudaMatrix<AFloat> & indexMatrix,
+                                         size_t imgHeight,
+                                         size_t imgWidth,
+                                         size_t fltHeight,
+                                         size_t fltWidth,
+                                         size_t strideRows,
+                                         size_t strideCols,
                                          size_t nLocalViews)
 {
+   size_t depth = activationGradientsBackward.GetNrows();
 
+   dim3 blockDims = TDevice::BlockDims2D();
+   dim3 gridDims  = TDevice::GridDims2D(activationGradientsBackward);
+   cudaStream_t s = activationGradientsBackward.GetComputeStream();
+
+   ::TMVA::DNN::Cuda::MaxPoolBackward<<<gridDims, blockDims, 0, s>>>(activationGradientsBackward.GetDataPointer(),
+                                                                     activationGradients.GetDataPointer(),
+                                                                     indexMatrix.GetDataPointer(),
+                                                                     depth, imgHeight, imgWidth, fltHeight, fltWidth,
+                                                                     strideRows, strideCols);
 }
 
 //____________________________________________________________________________

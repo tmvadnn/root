@@ -237,6 +237,9 @@ endif()
 #---Check for LZ4--------------------------------------------------------------------
 if(NOT builtin_lz4)
   message(STATUS "Looking for LZ4")
+  foreach(suffix FOUND INCLUDE_DIR LIBRARY LIBRARY_DEBUG LIBRARY_RELEASE)
+    unset(LZ4_${suffix} CACHE)
+  endforeach()
   find_package(LZ4)
   if(NOT LZ4_FOUND)
     message(STATUS "LZ4 not found. Switching on builtin_lz4 option")
@@ -441,18 +444,14 @@ endif()
 
 #---Check for Python installation-------------------------------------------------------
 if(python)
-  if(fail-on-missing)
-    find_package(PythonInterp ${python_version} REQUIRED)
-    find_package(PythonLibs ${python_version} REQUIRED)
-    if (tmva)
+  find_package(PythonInterp ${python_version} REQUIRED)
+  find_package(PythonLibs ${python_version} REQUIRED)
+  if (tmva)
+    if(fail-on-missing)
       find_package(NumPy REQUIRED)
     else()
       find_package(NumPy)
     endif()
-  else()
-    find_package(PythonInterp ${python_version})
-    find_package(PythonLibs ${python_version})
-    find_package(NumPy)
   endif()
 endif()
 
@@ -1035,20 +1034,6 @@ if(builtin_ftgl)
   set(FTGL_LIBRARIES FTGL)
 endif()
 
-#---Check for chirp--------------------------------------------------------------------
-if(chirp)
-  find_package(chirp)
-  if(NOT CHIRP_FOUND)
-    if(fail-on-missing)
-      message(FATAL_ERROR "chirp library not found and is required (chirp option enabled)")
-    else()
-      message(STATUS "chirp library not found. Set variable CHIRP_DIR to point to your chirp installation")
-      message(STATUS "For the time being switching OFF 'chirp' option")
-      set(chirp OFF CACHE BOOL "Disabled because chirp not found (${chirp_description})" FORCE)
-    endif()
-  endif()
-endif()
-
 #---Check for R/Rcpp/RInside--------------------------------------------------------------------
 #added search of R packages here to remove multiples searches
 if(r)
@@ -1472,7 +1457,8 @@ if(vdt OR builtin_vdt)
             DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
     install(DIRECTORY ${CMAKE_BINARY_DIR}/include/vdt
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT extra-headers)
-          set(vdt ON CACHE BOOL "Enabled because builtin_vdt enabled (${vdt_description})" FORCE)
+    set(vdt ON CACHE BOOL "Enabled because builtin_vdt enabled (${vdt_description})" FORCE)
+    set_property(GLOBAL APPEND PROPERTY ROOT_BUILTIN_TARGETS VDT)
   endif()
 endif()
 
@@ -1609,11 +1595,10 @@ if (testing)
 
 endif()
 
-#---Report non implemented options---------------------------------------------------
-foreach(opt afs glite sapdb srp)
+#---Report removed options---------------------------------------------------
+foreach(opt afs glite sapdb srp chirp ios)
   if(${opt})
-    message(STATUS ">>> Option '${opt}' not implemented yet! Signal your urgency to pere.mato@cern.ch")
-    set(${opt} OFF CACHE BOOL "Disabled because not implemented yet (${${opt}_description})" FORCE)
+    message(FATAL_ERROR ">>> Option '${opt}' has been removed in ROOT v6.16.")
   endif()
 endforeach()
 
